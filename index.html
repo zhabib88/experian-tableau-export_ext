@@ -355,7 +355,31 @@
             color: #005eb8;
             border-left: 4px solid #00acee;
         }
-    </style>
+    
+
+        .column-item.dragging {
+            opacity: 0.4;
+            background: #e3f2fd !important;
+            border: 2px dashed #005eb8 !important;
+            transform: scale(1.02);
+            cursor: grabbing !important;
+        }
+
+        .column-item.drag-over {
+            border-top: 4px solid #005eb8 !important;
+            background: #f0f8ff !important;
+        }
+
+        .drag-handle {
+            cursor: grab;
+            user-select: none;
+            padding: 0 5px;
+            color: #999;
+        }
+
+        .drag-handle:active {
+            cursor: grabbing;
+        }</style>
 </head>
 <body>
     <div class="container">
