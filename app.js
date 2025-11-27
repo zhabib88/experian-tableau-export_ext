@@ -135,9 +135,14 @@ async function handleWorksheetSelection() {
             
             // Add info message
             const infoDiv = document.createElement('div');
-            infoDiv.style.cssText = 'background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; border-radius: 6px; margin-bottom: 15px; font-size: 13px; color: #856404;';
-            infoDiv.innerHTML = `<strong>ℹ️ Multiple Worksheets Selected (${selectedWorksheets.length})</strong><br>Columns are grouped by worksheet below. Column selections will apply to all selected worksheets.`;
+            infoDiv.className = 'tab-info';
+            infoDiv.innerHTML = `<strong>ℹ️ Multiple Worksheets Selected (${selectedWorksheets.length})</strong><br>Use the tabs below to select columns for each worksheet.`;
             columnList.appendChild(infoDiv);
+
+            // Create tabs container
+            const tabsContainer = document.createElement('div');
+            tabsContainer.className = 'tabs';
+            columnList.appendChild(tabsContainer);
             
             for (const worksheetName of selectedWorksheets) {
                 const worksheet = worksheets.find(ws => ws.name === worksheetName);
@@ -151,15 +156,31 @@ async function handleWorksheetSelection() {
                     worksheetColumns.set(worksheetName, filteredColumns);
                 }
 
-                const columns = worksheetColumns.get(worksheetName);                // Create section for this worksheet
-                const worksheetSection = document.createElement('div');
-                worksheetSection.style.cssText = 'margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; border: 2px solid #e0e0e0;';
+                const columns = worksheetColumns.get(worksheetName);
                 
-                // Worksheet header
-                const header = document.createElement('div');
-                header.style.cssText = 'background: #005eb8; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; font-weight: 600; font-size: 14px;';
-                header.innerHTML = `📋 ${worksheetName} <span style="font-weight: 400; font-size: 12px; opacity: 0.9;">(${columns.length} columns)</span>`;
-                worksheetSection.appendChild(header);
+                // Create tab button
+                const tabButton = document.createElement('button');
+                tabButton.className = 'tab-button' + (selectedWorksheets.indexOf(worksheetName) === 0 ? ' active' : '');
+                tabButton.textContent = `${worksheetName} (${columns.length})`;
+                tabButton.onclick = (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                    tabButton.classList.add('active');
+                    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                    document.getElementById('tab-' + worksheetName).classList.add('active');
+                };
+                tabsContainer.appendChild(tabButton);
+            }
+
+            // Create tab content panels
+            for (const worksheetName of selectedWorksheets) {
+                const columns = worksheetColumns.get(worksheetName);
+                
+                // Create tab content
+                const tabContent = document.createElement('div');
+                tabContent.className = 'tab-content' + (selectedWorksheets.indexOf(worksheetName) === 0 ? ' active' : '');
+                tabContent.id = 'tab-' + worksheetName;
+
                 
                 // Add columns for this worksheet
                 columns.forEach((column, index) => {
@@ -193,10 +214,10 @@ async function handleWorksheetSelection() {
                     div.appendChild(checkbox);
                     div.appendChild(label);
                     div.appendChild(badge);
-                    worksheetSection.appendChild(div);
+                    tabContent.appendChild(div);
                 });
-                
-                columnList.appendChild(worksheetSection);
+
+                columnList.appendChild(tabContent);
             }
         } else {
             // Single worksheet - show columns normally
