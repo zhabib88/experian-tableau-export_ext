@@ -185,22 +185,23 @@ async function handleWorksheetSelection() {
                 columns.forEach((column, index) => {
                     const div = document.createElement('div');
                     div.className = 'column-item';
-                    div.draggable = true;
                     div.dataset.originalName = column.fieldName;
                     div.dataset.worksheet = worksheetName;
 
-                    // Order number
-                    const orderSpan = document.createElement('span');
-                    orderSpan.className = 'column-order';
-                    orderSpan.textContent = index + 1;
-                    orderSpan.style.pointerEvents = 'none';
-
-                    // Drag handle
-                    const dragHandle = document.createElement('span');
-                    dragHandle.className = 'drag-handle';
-                    dragHandle.innerHTML = '\\u22ee\\u22ee';
-                    dragHandle.title = 'Drag to reorder';
-                    dragHandle.style.pointerEvents = 'none';
+                    // Order number input (editable)
+                    const orderInput = document.createElement('input');
+                    orderInput.type = 'number';
+                    orderInput.className = 'column-order-input';
+                    orderInput.value = index + 1;
+                    orderInput.min = 1;
+                    orderInput.title = 'Change number to reorder';
+                    orderInput.style.width = '45px';
+                    orderInput.style.textAlign = 'center';
+                    
+                    // Reorder on change
+                    orderInput.addEventListener('change', (e) => {
+                        reorderColumns(tabContent, parseInt(e.target.value), div);
+                    });
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
@@ -209,8 +210,6 @@ async function handleWorksheetSelection() {
                     checkbox.checked = true;
                     checkbox.dataset.index = index;
                     checkbox.dataset.worksheet = worksheetName;
-                    checkbox.draggable = false;
-                    checkbox.style.pointerEvents = 'auto';
 
                     // Rename input instead of label
                     const renameInput = document.createElement('input');
@@ -219,15 +218,6 @@ async function handleWorksheetSelection() {
                     renameInput.value = column.fieldName;
                     renameInput.title = 'Click to rename for export';
                     renameInput.dataset.originalName = column.fieldName;
-                    renameInput.draggable = false;
-                    
-                    // Prevent input from interfering with row drag - disable drag when focused
-                    renameInput.addEventListener('focus', (e) => {
-                        div.draggable = false;
-                    });
-                    renameInput.addEventListener('blur', (e) => {
-                        div.draggable = true;
-                    });
 
                     // Add badge for column type
                     const badge = document.createElement('span');
@@ -239,18 +229,10 @@ async function handleWorksheetSelection() {
                         badge.className = 'column-badge badge-dimension';
                         badge.textContent = 'Dimension';
                     }
-                    badge.style.pointerEvents = 'none';
 
-                    // Drag and drop events
-                    div.addEventListener('dragstart', handleDragStart);
-                    div.addEventListener('dragend', handleDragEnd);
-                    div.addEventListener('dragover', handleDragOver);
-                    div.addEventListener('dragenter', handleDragEnter);
-                    div.addEventListener('drop', handleDrop);
-                    div.addEventListener('dragleave', handleDragLeave);
+                    // No drag events needed - using sequence numbers instead
 
-                    div.appendChild(orderSpan);
-                    div.appendChild(dragHandle);
+                    div.appendChild(orderInput);
                     div.appendChild(checkbox);
                     div.appendChild(renameInput);
                     div.appendChild(badge);
@@ -398,90 +380,44 @@ function getExportFormat() {
     return format;
 }
 
-// Drag and drop handlers
-let draggedElement = null;
-
-function handleDragStart(e) {
-    draggedElement = this;
-    this.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', this.innerHTML);
-    console.log('Drag started:', this.dataset.originalName);
-}
-
-function handleDragEnd(e) {
-    this.classList.remove('dragging');
-    document.querySelectorAll('.column-item').forEach(item => {
-        item.classList.remove('drag-over');
-    });
-    updateColumnOrder();
-}
-
-function handleDragOver(e) {
-    if (e.preventDefault) {
-        e.preventDefault();
-    }
-    e.dataTransfer.dropEffect = 'move';
+// Reorder columns based on sequence number
+function reorderColumns(tabContent, newPosition, movedItem) {
+    const allItems = [...tabContent.querySelectorAll('.column-item')];
+    const currentIndex = allItems.indexOf(movedItem);
     
-    if (draggedElement && draggedElement !== this && draggedElement.dataset.worksheet === this.dataset.worksheet) {
-        this.classList.add('drag-over');
+    // Validate position
+    if (newPosition < 1) newPosition = 1;
+    if (newPosition > allItems.length) newPosition = allItems.length;
+    
+    const newIndex = newPosition - 1;
+    if (newIndex === currentIndex) return;
+    
+    // Remove item from current position
+    movedItem.remove();
+    
+    // Insert at new position
+    if (newIndex >= allItems.length - 1) {
+        tabContent.appendChild(movedItem);
+    } else {
+        const referenceItem = allItems[newIndex];
+        tabContent.insertBefore(movedItem, referenceItem);
     }
     
-    return false;
+    // Update all sequence numbers
+    updateColumnOrder(tabContent);
 }
 
-function handleDrop(e) {
-    if (e.preventDefault) {
-        e.preventDefault();
-    }
-    if (e.stopPropagation) {
-        e.stopPropagation();
-    }
-    
-    if (draggedElement && draggedElement !== this && draggedElement.dataset.worksheet === this.dataset.worksheet) {
-        const parent = this.parentNode;
-        const allItems = [...parent.querySelectorAll('.column-item')];
-        const draggedIndex = allItems.indexOf(draggedElement);
-        const targetIndex = allItems.indexOf(this);
-        
-        if (draggedIndex < targetIndex) {
-            parent.insertBefore(draggedElement, this.nextSibling);
-        } else {
-            parent.insertBefore(draggedElement, this);
+function updateColumnOrder(tabContent) {
+    const items = tabContent.querySelectorAll('.column-item');
+    items.forEach((item, index) => {
+        const orderInput = item.querySelector('.column-order-input');
+        if (orderInput) {
+            orderInput.value = index + 1;
         }
-    }
-    
-    this.classList.remove('drag-over');
-    document.querySelectorAll('.column-item').forEach(item => item.classList.remove('drag-over'));
-    return false;
-}
-
-function handleDragEnter(e) {
-    if (e.preventDefault) {
-        e.preventDefault();
-    }
-    if (draggedElement && draggedElement !== this && draggedElement.dataset.worksheet === this.dataset.worksheet) {
-        this.classList.add('drag-over');
-    }
-}
-
-function handleDragLeave(e) {
-    this.classList.remove('drag-over');
-}
-
-function updateColumnOrder() {
-    document.querySelectorAll('.tab-content').forEach(tabContent => {
-        const items = tabContent.querySelectorAll('.column-item');
-        items.forEach((item, index) => {
-            const orderSpan = item.querySelector('.column-order');
-            if (orderSpan) {
-                orderSpan.textContent = index + 1;
-            }
-            const checkbox = item.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-                checkbox.dataset.index = index;
-            }
-        });
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox) {
+            checkbox.dataset.index = index;
+        }
     });
 }
 
