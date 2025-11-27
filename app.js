@@ -175,13 +175,12 @@ async function handleWorksheetSelection() {
             // Create tab content panels
             for (const worksheetName of selectedWorksheets) {
                 const columns = worksheetColumns.get(worksheetName);
-                
+
                 // Create tab content
                 const tabContent = document.createElement('div');
                 tabContent.className = 'tab-content' + (selectedWorksheets.indexOf(worksheetName) === 0 ? ' active' : '');
                 tabContent.id = 'tab-' + worksheetName;
 
-                
                 // Add columns for this worksheet
                 columns.forEach((column, index) => {
                     const div = document.createElement('div');
