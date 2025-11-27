@@ -231,6 +231,7 @@ async function handleWorksheetSelection() {
                     div.addEventListener('dragstart', handleDragStart);
                     div.addEventListener('dragend', handleDragEnd);
                     div.addEventListener('dragover', handleDragOver);
+                    div.addEventListener('dragenter', handleDragEnter);
                     div.addEventListener('drop', handleDrop);
                     div.addEventListener('dragleave', handleDragLeave);
 
@@ -405,15 +406,23 @@ function handleDragOver(e) {
         e.preventDefault();
     }
     e.dataTransfer.dropEffect = 'move';
+    
+    if (draggedElement && draggedElement !== this && draggedElement.dataset.worksheet === this.dataset.worksheet) {
+        this.classList.add('drag-over');
+    }
+    
     return false;
 }
 
 function handleDrop(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
     if (e.stopPropagation) {
         e.stopPropagation();
     }
     
-    if (draggedElement !== this && draggedElement.dataset.worksheet === this.dataset.worksheet) {
+    if (draggedElement && draggedElement !== this && draggedElement.dataset.worksheet === this.dataset.worksheet) {
         const parent = this.parentNode;
         const allItems = [...parent.querySelectorAll('.column-item')];
         const draggedIndex = allItems.indexOf(draggedElement);
@@ -427,7 +436,17 @@ function handleDrop(e) {
     }
     
     this.classList.remove('drag-over');
+    document.querySelectorAll('.column-item').forEach(item => item.classList.remove('drag-over'));
     return false;
+}
+
+function handleDragEnter(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    if (draggedElement && draggedElement !== this && draggedElement.dataset.worksheet === this.dataset.worksheet) {
+        this.classList.add('drag-over');
+    }
 }
 
 function handleDragLeave(e) {
