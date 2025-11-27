@@ -1,7 +1,7 @@
 // Initialize Tableau Extension
 let dashboard;
 let worksheets = [];
-let worksheetColumns = new Map(); // Store columns for each worksheet
+window.worksheetColumns = new Map(); // Store columns for each worksheet (global for export)
 
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', () => {
@@ -149,14 +149,14 @@ async function handleWorksheetSelection() {
                 if (!worksheet) continue;
                 
                 // Check if we already have columns cached
-                if (!worksheetColumns.has(worksheetName)) {
+                if (!window.worksheetColumns.has(worksheetName)) {
                     const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
                     // Filter out AGG columns
                     const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
-                    worksheetColumns.set(worksheetName, filteredColumns);
+                    window.worksheetColumns.set(worksheetName, filteredColumns);
                 }
 
-                const columns = worksheetColumns.get(worksheetName);
+                const columns = window.worksheetColumns.get(worksheetName);
                 
                 // Create tab button
                 const tabButton = document.createElement('button');
@@ -174,7 +174,7 @@ async function handleWorksheetSelection() {
 
             // Create tab content panels
             for (const worksheetName of selectedWorksheets) {
-                const columns = worksheetColumns.get(worksheetName);
+                const columns = window.worksheetColumns.get(worksheetName);
 
                 // Create tab content
                 const tabContent = document.createElement('div');
@@ -185,8 +185,21 @@ async function handleWorksheetSelection() {
                 columns.forEach((column, index) => {
                     const div = document.createElement('div');
                     div.className = 'column-item';
-                    div.style.marginBottom = '5px';
-                    
+                    div.draggable = true;
+                    div.dataset.originalName = column.fieldName;
+                    div.dataset.worksheet = worksheetName;
+
+                    // Order number
+                    const orderSpan = document.createElement('span');
+                    orderSpan.className = 'column-order';
+                    orderSpan.textContent = index + 1;
+
+                    // Drag handle
+                    const dragHandle = document.createElement('span');
+                    dragHandle.className = 'drag-handle';
+                    dragHandle.innerHTML = '⋮⋮';
+                    dragHandle.title = 'Drag to reorder';
+
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
                     checkbox.id = `column_${worksheetName}_${index}`;
@@ -194,11 +207,15 @@ async function handleWorksheetSelection() {
                     checkbox.checked = true;
                     checkbox.dataset.index = index;
                     checkbox.dataset.worksheet = worksheetName;
-                    
-                    const label = document.createElement('label');
-                    label.htmlFor = `column_${worksheetName}_${index}`;
-                    label.textContent = column.fieldName;
-                    
+
+                    // Rename input instead of label
+                    const renameInput = document.createElement('input');
+                    renameInput.type = 'text';
+                    renameInput.className = 'column-rename-input';
+                    renameInput.value = column.fieldName;
+                    renameInput.title = 'Click to rename for export';
+                    renameInput.dataset.originalName = column.fieldName;
+
                     // Add badge for column type
                     const badge = document.createElement('span');
                     const dataType = column.dataType.toLowerCase();
@@ -209,9 +226,18 @@ async function handleWorksheetSelection() {
                         badge.className = 'column-badge badge-dimension';
                         badge.textContent = 'Dimension';
                     }
-                    
+
+                    // Drag and drop events
+                    div.addEventListener('dragstart', handleDragStart);
+                    div.addEventListener('dragend', handleDragEnd);
+                    div.addEventListener('dragover', handleDragOver);
+                    div.addEventListener('drop', handleDrop);
+                    div.addEventListener('dragleave', handleDragLeave);
+
+                    div.appendChild(orderSpan);
+                    div.appendChild(dragHandle);
                     div.appendChild(checkbox);
-                    div.appendChild(label);
+                    div.appendChild(renameInput);
                     div.appendChild(badge);
                     tabContent.appendChild(div);
                 });
@@ -226,14 +252,14 @@ async function handleWorksheetSelection() {
             if (!worksheet) return;
             
             // Check if we already have columns cached
-            if (!worksheetColumns.has(worksheetName)) {
+            if (!window.worksheetColumns.has(worksheetName)) {
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
                 // Filter out AGG columns
                 const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
-                worksheetColumns.set(worksheetName, filteredColumns);
+                window.worksheetColumns.set(worksheetName, filteredColumns);
             }
 
-            const columns = worksheetColumns.get(worksheetName);
+            const columns = window.worksheetColumns.get(worksheetName);
             displayColumnSelection(columns, worksheetName);
         }
         
@@ -357,6 +383,73 @@ function getExportFormat() {
     return format;
 }
 
+// Drag and drop handlers
+let draggedElement = null;
+
+function handleDragStart(e) {
+    draggedElement = this;
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    this.classList.remove('dragging');
+    document.querySelectorAll('.column-item').forEach(item => {
+        item.classList.remove('drag-over');
+    });
+    updateColumnOrder();
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+    
+    if (draggedElement !== this && draggedElement.dataset.worksheet === this.dataset.worksheet) {
+        const parent = this.parentNode;
+        const allItems = [...parent.querySelectorAll('.column-item')];
+        const draggedIndex = allItems.indexOf(draggedElement);
+        const targetIndex = allItems.indexOf(this);
+        
+        if (draggedIndex < targetIndex) {
+            parent.insertBefore(draggedElement, this.nextSibling);
+        } else {
+            parent.insertBefore(draggedElement, this);
+        }
+    }
+    
+    this.classList.remove('drag-over');
+    return false;
+}
+
+function handleDragLeave(e) {
+    this.classList.remove('drag-over');
+}
+
+function updateColumnOrder() {
+    document.querySelectorAll('.tab-content').forEach(tabContent => {
+        const items = tabContent.querySelectorAll('.column-item');
+        items.forEach((item, index) => {
+            const orderSpan = item.querySelector('.column-order');
+            if (orderSpan) {
+                orderSpan.textContent = index + 1;
+            }
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                checkbox.dataset.index = index;
+            }
+        });
+    });
+}
+
 // Export selected worksheets to Excel
 async function exportToExcel() {
     const checkedBoxes = document.querySelectorAll('.worksheet-item input[type="checkbox"]:checked');
@@ -367,21 +460,41 @@ async function exportToExcel() {
         return;
     }
 
-    // Get selected columns grouped by worksheet
-    const selectedColumnCheckboxes = document.querySelectorAll('.column-item input[type="checkbox"]:checked');
-    
-    // Group selected columns by worksheet
+    // Get selected columns grouped by worksheet in display order
     const worksheetColumns = new Map();
-    selectedColumnCheckboxes.forEach(cb => {
-        const worksheetName = cb.dataset.worksheet || selectedWorksheets[0];
-        if (!worksheetColumns.has(worksheetName)) {
-            worksheetColumns.set(worksheetName, { indices: [], names: [] });
+    
+    document.querySelectorAll('.tab-content').forEach(tabContent => {
+        const worksheetName = tabContent.id.replace('tab-', '');
+        if (!selectedWorksheets.includes(worksheetName)) return;
+        
+        const columnItems = tabContent.querySelectorAll('.column-item');
+        const indices = [];
+        const names = [];
+        const originalNames = [];
+        
+        columnItems.forEach(item => {
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+                const renameInput = item.querySelector('.column-rename-input');
+                const originalName = renameInput.dataset.originalName;
+                const newName = renameInput.value.trim() || originalName;
+                
+                // Find original index from cached columns
+                const cachedColumns = window.worksheetColumns?.get(worksheetName) || [];
+                const originalIndex = cachedColumns.findIndex(col => col.fieldName === originalName);
+                
+                if (originalIndex >= 0) {
+                    indices.push(originalIndex);
+                    names.push(newName);
+                    originalNames.push(originalName);
+                }
+            }
+        });
+        
+        if (indices.length > 0) {
+            window.worksheetColumns.set(worksheetName, { indices, names, originalNames });
         }
-        worksheetColumns.get(worksheetName).indices.push(parseInt(cb.dataset.index));
-        worksheetColumns.get(worksheetName).names.push(cb.value);
-    });
-
-    // Get distinct values option
+    });    // Get distinct values option
     const showDistinctOnly = document.getElementById('showDistinctOnly')?.checked || false;
 
     console.log('Export options:', {
@@ -409,7 +522,7 @@ async function exportToExcel() {
                 let data;
 
                 // Get columns specific to this worksheet
-                const wsColumns = worksheetColumns.get(worksheetName);
+                const wsColumns = window.worksheetColumns.get(worksheetName);
                 
                 if (wsColumns && wsColumns.indices.length > 0 && wsColumns.indices.length < dataTable.columns.length) {
                     // Filter to selected columns for THIS worksheet
