@@ -146,12 +146,12 @@ async function handleWorksheetSelection() {
                 // Check if we already have columns cached
                 if (!worksheetColumns.has(worksheetName)) {
                     const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-                    worksheetColumns.set(worksheetName, dataTable.columns);
+                    // Filter out AGG columns
+                    const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
+                    worksheetColumns.set(worksheetName, filteredColumns);
                 }
-                
-                const columns = worksheetColumns.get(worksheetName);
-                
-                // Create section for this worksheet
+
+                const columns = worksheetColumns.get(worksheetName);                // Create section for this worksheet
                 const worksheetSection = document.createElement('div');
                 worksheetSection.style.cssText = 'margin-bottom: 20px; padding: 15px; background: white; border-radius: 8px; border: 2px solid #e0e0e0;';
                 
@@ -208,9 +208,11 @@ async function handleWorksheetSelection() {
             // Check if we already have columns cached
             if (!worksheetColumns.has(worksheetName)) {
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-                worksheetColumns.set(worksheetName, dataTable.columns);
+                // Filter out AGG columns
+                const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
+                worksheetColumns.set(worksheetName, filteredColumns);
             }
-            
+
             const columns = worksheetColumns.get(worksheetName);
             displayColumnSelection(columns, worksheetName);
         }
@@ -339,23 +341,32 @@ function getExportFormat() {
 async function exportToExcel() {
     const checkedBoxes = document.querySelectorAll('.worksheet-item input[type="checkbox"]:checked');
     const selectedWorksheets = Array.from(checkedBoxes).map(cb => cb.value);
-    
+
     if (selectedWorksheets.length === 0) {
         showStatus('Please select at least one worksheet to export.', 'error');
         return;
     }
 
-    // Get selected columns
+    // Get selected columns grouped by worksheet
     const selectedColumnCheckboxes = document.querySelectorAll('.column-item input[type="checkbox"]:checked');
-    const selectedColumnIndices = Array.from(selectedColumnCheckboxes).map(cb => parseInt(cb.dataset.index));
-    const selectedColumnNames = Array.from(selectedColumnCheckboxes).map(cb => cb.value);
     
+    // Group selected columns by worksheet
+    const worksheetColumns = new Map();
+    selectedColumnCheckboxes.forEach(cb => {
+        const worksheetName = cb.dataset.worksheet || selectedWorksheets[0];
+        if (!worksheetColumns.has(worksheetName)) {
+            worksheetColumns.set(worksheetName, { indices: [], names: [] });
+        }
+        worksheetColumns.get(worksheetName).indices.push(parseInt(cb.dataset.index));
+        worksheetColumns.get(worksheetName).names.push(cb.value);
+    });
+
     // Get distinct values option
     const showDistinctOnly = document.getElementById('showDistinctOnly')?.checked || false;
-    
+
     console.log('Export options:', {
         worksheets: selectedWorksheets.length,
-        columns: selectedColumnNames.length,
+        worksheetColumns: Array.from(worksheetColumns.entries()).map(([name, cols]) => `${name}: ${cols.names.length} columns`),
         distinctOnly: showDistinctOnly
     });
 
@@ -367,20 +378,22 @@ async function exportToExcel() {
 
         for (const worksheetName of selectedWorksheets) {
             const worksheet = worksheets.find(ws => ws.name === worksheetName);
-            
+
             if (!worksheet) continue;
 
             showStatus(`Processing: ${worksheetName}...`, 'info');
 
             try {
                 const dataTable = await worksheet.getSummaryDataAsync();
-                
+
                 let data;
+
+                // Get columns specific to this worksheet
+                const wsColumns = worksheetColumns.get(worksheetName);
                 
-                // Check if column filtering is active
-                if (selectedColumnIndices.length > 0 && selectedColumnIndices.length < dataTable.columns.length) {
-                    // Filter columns
-                    data = filterColumns(dataTable, selectedColumnIndices, selectedColumnNames, showDistinctOnly);
+                if (wsColumns && wsColumns.indices.length > 0 && wsColumns.indices.length < dataTable.columns.length) {
+                    // Filter to selected columns for THIS worksheet
+                    data = filterColumns(dataTable, wsColumns.indices, wsColumns.names, showDistinctOnly);
                 } else if (showDistinctOnly) {
                     // Just show distinct values for all columns
                     data = getDistinctValues(dataTable, null);
@@ -392,10 +405,10 @@ async function exportToExcel() {
                 if (data && data.length > 0) {
                     const sheetName = sanitizeSheetName(worksheetName);
                     const ws = XLSX.utils.aoa_to_sheet(data);
-                    
+
                     const colWidths = calculateColumnWidths(data);
                     ws['!cols'] = colWidths;
-                    
+
                     XLSX.utils.book_append_sheet(workbook, ws, sheetName);
                 }
             } catch (error) {
@@ -407,9 +420,9 @@ async function exportToExcel() {
         // Generate Excel file
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
         const filename = `Tableau_Export_${timestamp}.xlsx`;
-        
+
         XLSX.writeFile(workbook, filename);
-        
+
         const distinctMsg = showDistinctOnly ? ' (distinct values only)' : '';
         showStatus(`✓ Successfully exported ${selectedWorksheets.length} worksheet(s) to ${filename}${distinctMsg}`, 'success');
     } catch (error) {
@@ -418,9 +431,7 @@ async function exportToExcel() {
     } finally {
         setLoading(false);
     }
-}
-
-// Filter columns and optionally get distinct values
+}// Filter columns and optionally get distinct values
 function filterColumns(dataTable, selectedIndices, selectedNames, distinctOnly) {
     const data = [];
     
