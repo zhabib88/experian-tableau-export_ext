@@ -197,8 +197,17 @@ async function handleWorksheetSelection() {
                     // Drag handle
                     const dragHandle = document.createElement('span');
                     dragHandle.className = 'drag-handle';
-                    dragHandle.innerHTML = '⋮⋮';
+                    dragHandle.innerHTML = '\u22ee\u22ee';
                     dragHandle.title = 'Drag to reorder';
+                    dragHandle.style.cursor = 'grab';
+                    
+                    // Make the handle initiate drag on the parent
+                    dragHandle.addEventListener('mousedown', (e) => {
+                        div.draggable = true;
+                    });
+                    dragHandle.addEventListener('mouseup', (e) => {
+                        div.draggable = true;
+                    });
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
@@ -215,6 +224,12 @@ async function handleWorksheetSelection() {
                     renameInput.value = column.fieldName;
                     renameInput.title = 'Click to rename for export';
                     renameInput.dataset.originalName = column.fieldName;
+                    renameInput.draggable = false;
+                    
+                    // Prevent input from interfering with row drag
+                    renameInput.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                    });
 
                     // Add badge for column type
                     const badge = document.createElement('span');
@@ -391,6 +406,8 @@ function handleDragStart(e) {
     draggedElement = this;
     this.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.innerHTML);
+    console.log('Drag started:', this.dataset.originalName);
 }
 
 function handleDragEnd(e) {
