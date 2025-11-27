@@ -193,21 +193,14 @@ async function handleWorksheetSelection() {
                     const orderSpan = document.createElement('span');
                     orderSpan.className = 'column-order';
                     orderSpan.textContent = index + 1;
+                    orderSpan.style.pointerEvents = 'none';
 
                     // Drag handle
                     const dragHandle = document.createElement('span');
                     dragHandle.className = 'drag-handle';
-                    dragHandle.innerHTML = '\u22ee\u22ee';
+                    dragHandle.innerHTML = '\\u22ee\\u22ee';
                     dragHandle.title = 'Drag to reorder';
-                    dragHandle.style.cursor = 'grab';
-                    
-                    // Make the handle initiate drag on the parent
-                    dragHandle.addEventListener('mousedown', (e) => {
-                        div.draggable = true;
-                    });
-                    dragHandle.addEventListener('mouseup', (e) => {
-                        div.draggable = true;
-                    });
+                    dragHandle.style.pointerEvents = 'none';
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
@@ -216,6 +209,8 @@ async function handleWorksheetSelection() {
                     checkbox.checked = true;
                     checkbox.dataset.index = index;
                     checkbox.dataset.worksheet = worksheetName;
+                    checkbox.draggable = false;
+                    checkbox.style.pointerEvents = 'auto';
 
                     // Rename input instead of label
                     const renameInput = document.createElement('input');
@@ -226,9 +221,12 @@ async function handleWorksheetSelection() {
                     renameInput.dataset.originalName = column.fieldName;
                     renameInput.draggable = false;
                     
-                    // Prevent input from interfering with row drag
-                    renameInput.addEventListener('mousedown', (e) => {
-                        e.stopPropagation();
+                    // Prevent input from interfering with row drag - disable drag when focused
+                    renameInput.addEventListener('focus', (e) => {
+                        div.draggable = false;
+                    });
+                    renameInput.addEventListener('blur', (e) => {
+                        div.draggable = true;
                     });
 
                     // Add badge for column type
@@ -241,6 +239,7 @@ async function handleWorksheetSelection() {
                         badge.className = 'column-badge badge-dimension';
                         badge.textContent = 'Dimension';
                     }
+                    badge.style.pointerEvents = 'none';
 
                     // Drag and drop events
                     div.addEventListener('dragstart', handleDragStart);
