@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -459,19 +459,20 @@
 
         <div class="content">
             <div class="format-options">
-                <h3>📊 Export Features</h3>
+                <h3>ðŸ“Š Export Features</h3>
                 <p style="color: #555; font-size: 14px; margin: 0; line-height: 1.6;">
-                    ✓ Export multiple worksheets in one click<br>
-                    ✓ Select specific columns to export<br>
-                    ✓ Export distinct values only (remove duplicates)<br>
-                    ✓ Automatically formatted Excel output
+                    âœ“ Export multiple worksheets in one click<br>
+                    âœ“ Select specific columns to export<br>
+                    âœ“ Export distinct values only (remove duplicates)<br>
+                    âœ“ Automatically formatted Excel output
                 </p>
             </div>
 
             <h2>Select Worksheets</h2>
             <div class="button-group">
                 <button class="btn-select-all" onclick="selectAll()">Select All</button>
-                <button class="btn-deselect-all" onclick="deselectAll()">Deselect All</button> <button class="btn-refresh" onclick="refreshAll()" title="Refresh worksheets and columns after changing parameters"> Refresh</button></div>`n            <p style="font-size: 12px; color: #666; margin: 5px 0 15px 0; font-style: italic;"> Click Refresh button after changing dashboard parameters/filters to reload columns</p>
+                <button class="btn-deselect-all" onclick="deselectAll()">Deselect All</button> <button class="btn-refresh" onclick="refreshAll()" title="Refresh worksheets and columns after changing parameters"> Refresh</button></div>
+            <p style="font-size: 12px; color: #666; margin: 5px 0 15px 0; font-style: italic;"> Click Refresh button after changing dashboard parameters/filters to reload columns</p>
 
             <div class="worksheet-list" id="worksheetList">
                 <p style="color: #666;">Loading worksheets...</p>
@@ -479,7 +480,7 @@
 
         <div id="columnSelectionContainer" style="display: none;">
             <div class="format-options" style="margin-top: 20px;">
-                <h3>🎯 Column & Data Options</h3>
+                <h3>ðŸŽ¯ Column & Data Options</h3>
                 
                 
                 <div style="margin-bottom: 15px;">
@@ -501,7 +502,7 @@
                     </label>
                     <p style="color: #666; font-size: 13px; margin: 5px 0 0 30px; line-height: 1.5;">
                         When enabled: Exports only unique combinations of selected columns.<br>
-                        <em>Example: 100 rows with 4 distinct regions → exports 4 unique region values</em>
+                        <em>Example: 100 rows with 4 distinct regions â†’ exports 4 unique region values</em>
                     </p>
                 </div>
 
@@ -521,7 +522,7 @@
         </div>
 
             <button class="btn-export" id="exportBtn" onclick="exportToExcel()" disabled>
-                📥 Export to Excel
+                ðŸ“¥ Export to Excel
             </button>
 
             <div class="loading" id="loading">
