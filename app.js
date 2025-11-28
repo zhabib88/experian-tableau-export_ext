@@ -340,18 +340,39 @@ function displayColumnSelection(columns, worksheetName) {
     columns.forEach((column, index) => {
         const div = document.createElement('div');
         div.className = 'column-item';
-        
+        div.dataset.originalName = column.fieldName;
+        div.dataset.worksheet = worksheetName;
+
+        // Order number input (editable)
+        const orderInput = document.createElement('input');
+        orderInput.type = 'number';
+        orderInput.className = 'column-order-input';
+        orderInput.value = index + 1;
+        orderInput.min = 1;
+        orderInput.title = 'Change number to reorder';
+        orderInput.style.width = '45px';
+        orderInput.style.textAlign = 'center';
+
+        // Reorder on change
+        orderInput.addEventListener('change', (e) => {
+            reorderColumns(columnList, parseInt(e.target.value), div);
+        });
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.id = `column_${index}`;
         checkbox.value = column.fieldName;
         checkbox.checked = true;
         checkbox.dataset.index = index;
-        
-        const label = document.createElement('label');
-        label.htmlFor = `column_${index}`;
-        label.textContent = column.fieldName;
-        
+
+        // Rename input instead of label
+        const renameInput = document.createElement('input');
+        renameInput.type = 'text';
+        renameInput.className = 'column-rename-input';
+        renameInput.value = column.fieldName;
+        renameInput.title = 'Click to rename for export';
+        renameInput.dataset.originalName = column.fieldName;
+
         // Add badge for column type
         const badge = document.createElement('span');
         const dataType = column.dataType.toLowerCase();
@@ -362,9 +383,10 @@ function displayColumnSelection(columns, worksheetName) {
             badge.className = 'column-badge badge-dimension';
             badge.textContent = 'Dimension';
         }
-        
+
+        div.appendChild(orderInput);
         div.appendChild(checkbox);
-        div.appendChild(label);
+        div.appendChild(renameInput);
         div.appendChild(badge);
         columnList.appendChild(div);
     });
@@ -533,8 +555,9 @@ async function exportToExcel() {
         columnItems.forEach(item => {
             const checkbox = item.querySelector('input[type="checkbox"]');
             if (checkbox && checkbox.checked) {
-                const originalName = checkbox.value;
-                const newName = originalName;
+                const renameInput = item.querySelector('.column-rename-input');
+                const originalName = renameInput ? renameInput.dataset.originalName : checkbox.value;
+                const newName = renameInput ? (renameInput.value.trim() || originalName) : originalName;
 
                 // Find original index from cached columns
                 const cachedColumns = window.worksheetColumns?.get(worksheetName) || [];
