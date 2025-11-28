@@ -456,9 +456,24 @@ async function collectDashboardFilters() {
                         // Handle different filter types
                         if (filter.filterType === 'categorical') {
                             if (filter.appliedValues && filter.appliedValues.length > 0) {
-                                filterValues = filter.appliedValues.map(v => v.value).join(', ');
+                                const values = filter.appliedValues.map(v => v.value);
+                                filterValues = values.slice(0, 100).join(', ');
+                                if (values.length > 100) {
+                                    filterValues += ` ... (${values.length - 100} more)`;
+                                }
+                                // Truncate if still too long (Excel limit is ~32K)
+                                if (filterValues.length > 30000) {
+                                    filterValues = filterValues.substring(0, 30000) + '... (truncated)';
+                                }
                             } else if (filter.isExcludeMode) {
-                                filterValues = 'Excluded: ' + (filter.excludedValues || []).map(v => v.value).join(', ');
+                                const excluded = (filter.excludedValues || []).map(v => v.value);
+                                filterValues = 'Excluded: ' + excluded.slice(0, 100).join(', ');
+                                if (excluded.length > 100) {
+                                    filterValues += ` ... (${excluded.length - 100} more)`;
+                                }
+                                if (filterValues.length > 30000) {
+                                    filterValues = filterValues.substring(0, 30000) + '... (truncated)';
+                                }
                             }
                         } else if (filter.filterType === 'range') {
                             if (filter.minValue !== null && filter.maxValue !== null) {
