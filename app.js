@@ -60,7 +60,33 @@ function setupFilterChangeListeners() {
                 }
                 showStatus('Filter changed - data will be refreshed on export', 'info');
             });
+            
+            // Listen for parameter changes as well
+            worksheet.addEventListener(tableau.TableauEventType.ParameterChanged, (event) => {
+                console.log('Parameter changed on worksheet:', worksheet.name);
+                // Clear cached data for this worksheet to force fresh fetch
+                if (window.worksheetColumns.has(worksheet.name)) {
+                    console.log('Clearing cached data for:', worksheet.name);
+                    window.worksheetColumns.delete(worksheet.name);
+                }
+                showStatus('Parameter changed - data will be refreshed on export', 'info');
+            });
         });
+        
+        // Also listen for dashboard-level parameter changes
+        try {
+            dashboard.addEventListener(tableau.TableauEventType.ParameterChanged, (event) => {
+                console.log('Dashboard parameter changed');
+                // Clear all cached data
+                window.worksheetColumns.forEach((value, key) => {
+                    console.log('Clearing cached data for:', key);
+                });
+                window.worksheetColumns.clear();
+                showStatus('Dashboard parameter changed - data will be refreshed on export', 'info');
+            });
+        } catch (e) {
+            console.log('Dashboard parameter listener not available:', e.message);
+        }
     } catch (error) {
         console.error('Error setting up filter listeners:', error);
     }
@@ -460,27 +486,28 @@ async function exportToExcel() {
 
     // Get selected columns grouped by worksheet in display order
     const worksheetColumns = new Map();
-    
+
+    // Handle multiple worksheets (with tabs)
     document.querySelectorAll('.tab-content').forEach(tabContent => {
         const worksheetName = tabContent.id.replace('tab-', '');
         if (!selectedWorksheets.includes(worksheetName)) return;
-        
+
         const columnItems = tabContent.querySelectorAll('.column-item');
         const indices = [];
         const names = [];
         const originalNames = [];
-        
+
         columnItems.forEach(item => {
             const checkbox = item.querySelector('input[type="checkbox"]');
             if (checkbox && checkbox.checked) {
                 const renameInput = item.querySelector('.column-rename-input');
-                const originalName = renameInput.dataset.originalName;
-                const newName = renameInput.value.trim() || originalName;
-                
+                const originalName = renameInput ? renameInput.dataset.originalName : checkbox.value;
+                const newName = renameInput ? (renameInput.value.trim() || originalName) : originalName;
+
                 // Find original index from cached columns
                 const cachedColumns = window.worksheetColumns?.get(worksheetName) || [];
                 const originalIndex = cachedColumns.findIndex(col => col.fieldName === originalName);
-                
+
                 if (originalIndex >= 0) {
                     indices.push(originalIndex);
                     names.push(newName);
@@ -488,18 +515,57 @@ async function exportToExcel() {
                 }
             }
         });
-        
+
         if (indices.length > 0) {
-            window.worksheetColumns.set(worksheetName, { indices, names, originalNames });
+            worksheetColumns.set(worksheetName, { indices, names, originalNames });
         }
     });
     
-    // Clear all cached worksheet data to force fresh fetch with current filters
-    console.log('Clearing cached data to fetch fresh filtered data...');
+    // Handle single worksheet (no tabs, direct column list)
+    if (selectedWorksheets.length === 1 && worksheetColumns.size === 0) {
+        const worksheetName = selectedWorksheets[0];
+        const columnList = document.getElementById('columnList');
+        const columnItems = columnList.querySelectorAll('.column-item');
+        const indices = [];
+        const names = [];
+        const originalNames = [];
+
+        columnItems.forEach(item => {
+            const checkbox = item.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.checked) {
+                const originalName = checkbox.value;
+                const newName = originalName;
+
+                // Find original index from cached columns
+                const cachedColumns = window.worksheetColumns?.get(worksheetName) || [];
+                const originalIndex = cachedColumns.findIndex(col => col.fieldName === originalName);
+
+                if (originalIndex >= 0) {
+                    indices.push(originalIndex);
+                    names.push(newName);
+                    originalNames.push(originalName);
+                }
+            }
+        });
+
+        if (indices.length > 0) {
+            worksheetColumns.set(worksheetName, { indices, names, originalNames });
+            console.log(`Single worksheet mode: ${names.length} columns selected for ${worksheetName}`);
+        }
+    }    // Save column selection config temporarily
+    const columnSelectionConfig = new Map(worksheetColumns);
+    
+    // Clear all cached worksheet column data to force fresh fetch with current filters
+    console.log('Clearing cached worksheet data to fetch fresh filtered data...');
+    const keysToDelete = [];
     window.worksheetColumns.forEach((value, key) => {
         if (selectedWorksheets.includes(key)) {
-            console.log('Keeping column config for:', key);
+            keysToDelete.push(key);
         }
+    });
+    keysToDelete.forEach(key => {
+        console.log('Clearing cached data for:', key);
+        window.worksheetColumns.delete(key);
     });
     
     // Get distinct values option
@@ -529,24 +595,50 @@ async function exportToExcel() {
                 console.log(`Fetching fresh data for ${worksheetName} with current filters applied...`);
                 const dataTable = await worksheet.getSummaryDataAsync();
                 console.log(`Retrieved ${dataTable.data.length} rows for ${worksheetName}`);
+                
+                // Filter out AGG columns from the fresh data
+                const filteredColumnIndices = [];
+                const filteredColumnNames = [];
+                dataTable.columns.forEach((col, idx) => {
+                    if (!col.fieldName.startsWith('AGG(')) {
+                        filteredColumnIndices.push(idx);
+                        filteredColumnNames.push(col.fieldName);
+                    }
+                });
+                console.log(`Filtered out AGG columns: ${dataTable.columns.length} -> ${filteredColumnIndices.length} columns`);
 
                 let data;
 
-                // Get columns specific to this worksheet
-                const wsColumns = window.worksheetColumns.get(worksheetName);
-                
-                if (wsColumns && wsColumns.indices.length > 0 && wsColumns.indices.length < dataTable.columns.length) {
-                    // Filter to selected columns for THIS worksheet
-                    data = filterColumns(dataTable, wsColumns.indices, wsColumns.names, showDistinctOnly);
-                } else if (showDistinctOnly) {
-                    // Just show distinct values for all columns
-                    data = getDistinctValues(dataTable, null);
-                } else {
-                    // Export all data normally
-                    data = convertTableauDataToArray(dataTable);
-                }
+                // Get columns specific to this worksheet from saved config
+                const wsColumns = columnSelectionConfig.get(worksheetName);
 
-                if (data && data.length > 0) {
+                if (wsColumns && wsColumns.indices.length > 0) {
+                    // Map selected column indices to filtered (non-AGG) column indices
+                    const mappedIndices = [];
+                    wsColumns.indices.forEach(selectedIdx => {
+                        // Only include if this index is in our filtered (non-AGG) list
+                        if (filteredColumnIndices.includes(selectedIdx)) {
+                            // Find the position in the actual dataTable
+                            mappedIndices.push(selectedIdx);
+                        }
+                    });
+                    
+                    if (mappedIndices.length > 0) {
+                        console.log(`Exporting ${mappedIndices.length} selected columns (AGG columns excluded)`);
+                        data = filterColumns(dataTable, mappedIndices, wsColumns.names.slice(0, mappedIndices.length), showDistinctOnly);
+                    } else {
+                        console.log('No valid columns after AGG filtering, exporting all non-AGG columns');
+                        data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
+                    }
+                } else if (showDistinctOnly) {
+                    // Just show distinct values for non-AGG columns only
+                    console.log('Exporting distinct values from all non-AGG columns');
+                    data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
+                } else {
+                    // Export all non-AGG columns normally
+                    console.log('Exporting all non-AGG columns');
+                    data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, false);
+                }                if (data && data.length > 0) {
                     const sheetName = sanitizeSheetName(worksheetName);
                     const ws = XLSX.utils.aoa_to_sheet(data);
 
