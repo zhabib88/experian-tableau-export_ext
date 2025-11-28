@@ -53,33 +53,25 @@ function setupFilterChangeListeners() {
             // Listen for filter changes on each worksheet
             worksheet.addEventListener(tableau.TableauEventType.FilterChanged, (event) => {
                 console.log('Filter changed on worksheet:', worksheet.name);
-                // Clear cached data for this worksheet to force fresh fetch
+                // Clear cached data for this worksheet to force fresh fetch on export
                 if (window.worksheetColumns.has(worksheet.name)) {
                     console.log('Clearing cached data for:', worksheet.name);
                     window.worksheetColumns.delete(worksheet.name);
                 }
-                showStatus('Filter changed - data will be refreshed on export', 'info');
-                // Automatically refresh column selection if this worksheet is currently selected
-                const checkbox = document.querySelector(`input[type="checkbox"][value="${worksheet.name}"]`);
-                if (checkbox && checkbox.checked) {
-                    handleWorksheetSelection();
-                }
+                showStatus('Filter changed - fresh data will be used on export (column selections preserved)', 'info');
+                // Don't auto-refresh UI to preserve user's column selections
             });
             
             // Listen for parameter changes as well
             worksheet.addEventListener(tableau.TableauEventType.ParameterChanged, (event) => {
                 console.log('Parameter changed on worksheet:', worksheet.name);
-                // Clear cached data for this worksheet to force fresh fetch
+                // Clear cached data for this worksheet to force fresh fetch on export
                 if (window.worksheetColumns.has(worksheet.name)) {
                     console.log('Clearing cached data for:', worksheet.name);
                     window.worksheetColumns.delete(worksheet.name);
                 }
-                showStatus('Parameter changed - data will be refreshed on export', 'info');
-                // Automatically refresh column selection if this worksheet is currently selected
-                const checkbox = document.querySelector(`input[type="checkbox"][value="${worksheet.name}"]`);
-                if (checkbox && checkbox.checked) {
-                    handleWorksheetSelection();
-                }
+                showStatus('Parameter changed - fresh data will be used on export (column selections preserved)', 'info');
+                // Don't auto-refresh UI to preserve user's column selections
             });
         });
         
@@ -92,9 +84,8 @@ function setupFilterChangeListeners() {
                     console.log('Clearing cached data for:', key);
                 });
                 window.worksheetColumns.clear();
-                showStatus('Parameter changed - please refresh or reselect worksheets to update columns', 'warning');
-                // Automatically refresh the column selection for currently selected worksheets
-                handleWorksheetSelection();
+                showStatus('⚠️ Parameter changed - Click 🔄 Refresh button if column structure changed', 'warning');
+                // Don't auto-refresh to preserve user's column selections
             });
         } catch (e) {
             console.log('Dashboard parameter listener not available:', e.message);
