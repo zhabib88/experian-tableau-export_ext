@@ -164,6 +164,18 @@
             box-shadow: 0 4px 16px rgba(108, 117, 125, 0.3);
         }
 
+        .btn-refresh {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-refresh:hover {
+            background: #218838;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3);
+        }
+
+
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
@@ -197,6 +209,14 @@
             border: 1px solid #bee5eb;
             display: block;
         }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+            display: block;
+        }
+
 
         .loading {
             display: none;
@@ -404,6 +424,29 @@
         .column-order-input::-webkit-outer-spin-button {
             opacity: 1;
             height: 30px;
+        }
+
+        .column-rename-input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #333;
+            background: white;
+            margin-right: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .column-rename-input:focus {
+            outline: none;
+            border-color: #00acee;
+            background: #f0f8ff;
+            box-shadow: 0 0 0 3px rgba(0, 172, 238, 0.1);
+        }
+
+        .column-rename-input:hover {
+            border-color: #00acee;
         }</style>
 </head>
 <body>
@@ -428,7 +471,7 @@
             <h2>Select Worksheets</h2>
             <div class="button-group">
                 <button class="btn-select-all" onclick="selectAll()">Select All</button>
-                <button class="btn-deselect-all" onclick="deselectAll()">Deselect All</button>
+                <button class="btn-deselect-all" onclick="deselectAll()">Deselect All</button>`n                <button class="btn-refresh" onclick="refreshAll()" title="Refresh worksheets and columns after changing parameters"> Refresh</button>
             </div>
 
             <div class="worksheet-list" id="worksheetList">

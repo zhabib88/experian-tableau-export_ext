@@ -59,6 +59,11 @@ function setupFilterChangeListeners() {
                     window.worksheetColumns.delete(worksheet.name);
                 }
                 showStatus('Filter changed - data will be refreshed on export', 'info');
+                // Automatically refresh column selection if this worksheet is currently selected
+                const checkbox = document.querySelector(`input[type="checkbox"][value="${worksheet.name}"]`);
+                if (checkbox && checkbox.checked) {
+                    handleWorksheetSelection();
+                }
             });
             
             // Listen for parameter changes as well
@@ -70,6 +75,11 @@ function setupFilterChangeListeners() {
                     window.worksheetColumns.delete(worksheet.name);
                 }
                 showStatus('Parameter changed - data will be refreshed on export', 'info');
+                // Automatically refresh column selection if this worksheet is currently selected
+                const checkbox = document.querySelector(`input[type="checkbox"][value="${worksheet.name}"]`);
+                if (checkbox && checkbox.checked) {
+                    handleWorksheetSelection();
+                }
             });
         });
         
@@ -82,7 +92,9 @@ function setupFilterChangeListeners() {
                     console.log('Clearing cached data for:', key);
                 });
                 window.worksheetColumns.clear();
-                showStatus('Dashboard parameter changed - data will be refreshed on export', 'info');
+                showStatus('Parameter changed - please refresh or reselect worksheets to update columns', 'warning');
+                // Automatically refresh the column selection for currently selected worksheets
+                handleWorksheetSelection();
             });
         } catch (e) {
             console.log('Dashboard parameter listener not available:', e.message);
@@ -402,6 +414,21 @@ function selectAllColumns() {
 function deselectAllColumns() {
     const checkboxes = document.querySelectorAll('.column-item input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = false);
+}
+
+// Refresh worksheets and columns (clear cache and reload)
+function refreshAll() {
+    console.log('Manual refresh triggered');
+    showStatus('Refreshing worksheets and columns...', 'info');
+    
+    // Clear all cached data
+    console.log('Clearing all cached column data...');
+    window.worksheetColumns.clear();
+    
+    // Reload worksheets
+    loadWorksheets();
+    
+    showStatus('✓ Refreshed successfully', 'success');
 }
 
 // Show status message
