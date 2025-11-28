@@ -573,7 +573,9 @@ async function exportToExcel() {
 
         if (indices.length > 0) {
             worksheetColumns.set(worksheetName, { indices, names, originalNames });
-            console.log(`Single worksheet mode: ${names.length} columns selected for ${worksheetName}`);
+            console.log(`Single worksheet mode: ${names.length} columns selected for ${worksheetName}`, { indices, names });
+        } else {
+            console.log(`Single worksheet mode: No columns selected for ${worksheetName}, will use all non-AGG columns`);
         }
     }    // Save column selection config temporarily
     const columnSelectionConfig = new Map(worksheetColumns);
@@ -636,31 +638,31 @@ async function exportToExcel() {
                 const wsColumns = columnSelectionConfig.get(worksheetName);
 
                 if (wsColumns && wsColumns.indices.length > 0) {
+                    // User has selected specific columns
                     // Map selected column indices to filtered (non-AGG) column indices
                     const mappedIndices = [];
-                    wsColumns.indices.forEach(selectedIdx => {
+                    const mappedNames = [];
+                    
+                    wsColumns.indices.forEach((selectedIdx, idx) => {
                         // Only include if this index is in our filtered (non-AGG) list
                         if (filteredColumnIndices.includes(selectedIdx)) {
                             // Find the position in the actual dataTable
                             mappedIndices.push(selectedIdx);
+                            mappedNames.push(wsColumns.names[idx]);
                         }
                     });
                     
                     if (mappedIndices.length > 0) {
-                        console.log(`Exporting ${mappedIndices.length} selected columns (AGG columns excluded)`);
-                        data = filterColumns(dataTable, mappedIndices, wsColumns.names.slice(0, mappedIndices.length), showDistinctOnly);
+                        console.log(`Exporting ${mappedIndices.length} selected columns for ${worksheetName} (AGG columns excluded)`, { mappedNames });
+                        data = filterColumns(dataTable, mappedIndices, mappedNames, showDistinctOnly);
                     } else {
                         console.log('No valid columns after AGG filtering, exporting all non-AGG columns');
                         data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
                     }
-                } else if (showDistinctOnly) {
-                    // Just show distinct values for non-AGG columns only
-                    console.log('Exporting distinct values from all non-AGG columns');
-                    data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
                 } else {
-                    // Export all non-AGG columns normally
-                    console.log('Exporting all non-AGG columns');
-                    data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, false);
+                    // No specific columns selected - export all non-AGG columns
+                    console.log(`No columns selected for ${worksheetName}, exporting all non-AGG columns (distinct: ${showDistinctOnly})`);
+                    data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
                 }                if (data && data.length > 0) {
                     const sheetName = sanitizeSheetName(worksheetName);
                     const ws = XLSX.utils.aoa_to_sheet(data);
