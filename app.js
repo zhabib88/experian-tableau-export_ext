@@ -595,8 +595,14 @@ async function exportToExcel() {
         } else {
             console.log(`Single worksheet mode: No columns selected for ${worksheetName}, will use all non-AGG columns`);
         }
-    }    // Save column selection config temporarily
+    }    // Save column selection config temporarily BEFORE clearing cache
+    console.log('Saving user column selections before export...');
     const columnSelectionConfig = new Map(worksheetColumns);
+    
+    // Log what we saved
+    columnSelectionConfig.forEach((config, wsName) => {
+        console.log(`Saved selections for ${wsName}:`, config.names);
+    });
     
     // Clear all cached worksheet column data to force fresh fetch with current filters
     console.log('Clearing cached worksheet data to fetch fresh filtered data...');
@@ -655,26 +661,32 @@ async function exportToExcel() {
                 // Get columns specific to this worksheet from saved config
                 const wsColumns = columnSelectionConfig.get(worksheetName);
 
-                if (wsColumns && wsColumns.indices.length > 0) {
-                    // User has selected specific columns
-                    // Map selected column indices to filtered (non-AGG) column indices
+                if (wsColumns && wsColumns.originalNames && wsColumns.originalNames.length > 0) {
+                    // User has selected specific columns - match by field name (not index)
+                    console.log(`Attempting to match ${wsColumns.originalNames.length} selected columns by name for ${worksheetName}`);
                     const mappedIndices = [];
                     const mappedNames = [];
                     
-                    wsColumns.indices.forEach((selectedIdx, idx) => {
-                        // Only include if this index is in our filtered (non-AGG) list
-                        if (filteredColumnIndices.includes(selectedIdx)) {
-                            // Find the position in the actual dataTable
-                            mappedIndices.push(selectedIdx);
+                    // Match selected columns by original field name in fresh data
+                    wsColumns.originalNames.forEach((originalName, idx) => {
+                        // Find this column in the fresh dataTable by field name
+                        const freshColIndex = dataTable.columns.findIndex(col => col.fieldName === originalName);
+                        
+                        if (freshColIndex >= 0 && !dataTable.columns[freshColIndex].fieldName.startsWith('AGG(')) {
+                            // Column exists in fresh data and is not AGG
+                            mappedIndices.push(freshColIndex);
                             mappedNames.push(wsColumns.names[idx]);
+                            console.log(`  ✓ Matched "${originalName}" → index ${freshColIndex}`);
+                        } else {
+                            console.log(`  ✗ Column "${originalName}" not found in fresh data or is AGG`);
                         }
                     });
                     
                     if (mappedIndices.length > 0) {
-                        console.log(`Exporting ${mappedIndices.length} selected columns for ${worksheetName} (AGG columns excluded)`, { mappedNames });
+                        console.log(`Exporting ${mappedIndices.length} matched columns for ${worksheetName}`, { mappedNames });
                         data = filterColumns(dataTable, mappedIndices, mappedNames, showDistinctOnly);
                     } else {
-                        console.log('No valid columns after AGG filtering, exporting all non-AGG columns');
+                        console.log('No columns matched in fresh data, exporting all non-AGG columns');
                         data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
                     }
                 } else {
