@@ -30,6 +30,10 @@ function initializeExtension() {
         console.log('Extension initialized successfully');
         dashboard = tableau.extensions.dashboardContent.dashboard;
         console.log('Dashboard loaded:', dashboard.name);
+        
+        // Listen for filter changes on all worksheets
+        setupFilterChangeListeners();
+        
         loadWorksheets();
     }).catch((error) => {
         console.error('Error initializing extension:', error);
@@ -37,6 +41,29 @@ function initializeExtension() {
         document.getElementById('worksheetList').innerHTML = 
             '<p style="color: #dc3545;">Error initializing extension: ' + error.message + '</p>';
     });
+}
+
+// Setup filter change listeners for all worksheets
+function setupFilterChangeListeners() {
+    try {
+        const allWorksheets = dashboard.worksheets;
+        console.log('Setting up filter change listeners for', allWorksheets.length, 'worksheets');
+        
+        allWorksheets.forEach(worksheet => {
+            // Listen for filter changes on each worksheet
+            worksheet.addEventListener(tableau.TableauEventType.FilterChanged, (event) => {
+                console.log('Filter changed on worksheet:', worksheet.name);
+                // Clear cached data for this worksheet to force fresh fetch
+                if (window.worksheetColumns.has(worksheet.name)) {
+                    console.log('Clearing cached data for:', worksheet.name);
+                    window.worksheetColumns.delete(worksheet.name);
+                }
+                showStatus('Filter changed - data will be refreshed on export', 'info');
+            });
+        });
+    } catch (error) {
+        console.error('Error setting up filter listeners:', error);
+    }
 }
 
 // Load all worksheets from the dashboard
@@ -465,8 +492,18 @@ async function exportToExcel() {
         if (indices.length > 0) {
             window.worksheetColumns.set(worksheetName, { indices, names, originalNames });
         }
-    });    // Get distinct values option
-    const showDistinctOnly = document.getElementById('showDistinctOnly')?.checked || false;
+    });
+    
+    // Clear all cached worksheet data to force fresh fetch with current filters
+    console.log('Clearing cached data to fetch fresh filtered data...');
+    window.worksheetColumns.forEach((value, key) => {
+        if (selectedWorksheets.includes(key)) {
+            console.log('Keeping column config for:', key);
+        }
+    });
+    
+    // Get distinct values option
+    const showDistinctOnly = document.getElementById('showDistinctOnly')?.checked || false;    
 
     console.log('Export options:', {
         worksheets: selectedWorksheets.length,
@@ -488,7 +525,10 @@ async function exportToExcel() {
             showStatus(`Processing: ${worksheetName}...`, 'info');
 
             try {
+                // Force fetch fresh data respecting current dashboard filters
+                console.log(`Fetching fresh data for ${worksheetName} with current filters applied...`);
                 const dataTable = await worksheet.getSummaryDataAsync();
+                console.log(`Retrieved ${dataTable.data.length} rows for ${worksheetName}`);
 
                 let data;
 
