@@ -422,6 +422,99 @@ function refreshAll() {
     showStatus('✓ Refreshed successfully', 'success');
 }
 
+// Collect dashboard filters information
+async function collectDashboardFilters() {
+    try {
+        const filterData = [];
+        
+        // Add header section
+        filterData.push(['DASHBOARD EXPORT SUMMARY']);
+        filterData.push(['']);
+        filterData.push(['Dashboard Name:', dashboard.name]);
+        filterData.push(['Export Date:', new Date().toLocaleString()]);
+        filterData.push(['Export User:', tableau.extensions.environment.mode || 'Desktop']);
+        filterData.push(['']);
+        filterData.push(['ACTIVE FILTERS']);
+        filterData.push(['Filter Name', 'Applied Values']);
+        filterData.push(['']);
+        
+        let hasFilters = false;
+        
+        // Get filters from all worksheets
+        for (const ws of worksheets) {
+            try {
+                const filters = await ws.getFiltersAsync();
+                
+                if (filters.length > 0) {
+                    // Add worksheet section header
+                    filterData.push([`Worksheet: ${ws.name}`, '']);
+                    
+                    for (const filter of filters) {
+                        hasFilters = true;
+                        let filterValues = '';
+                        
+                        // Handle different filter types
+                        if (filter.filterType === 'categorical') {
+                            if (filter.appliedValues && filter.appliedValues.length > 0) {
+                                filterValues = filter.appliedValues.map(v => v.value).join(', ');
+                            } else if (filter.isExcludeMode) {
+                                filterValues = 'Excluded: ' + (filter.excludedValues || []).map(v => v.value).join(', ');
+                            }
+                        } else if (filter.filterType === 'range') {
+                            if (filter.minValue !== null && filter.maxValue !== null) {
+                                filterValues = `${filter.minValue} to ${filter.maxValue}`;
+                            } else if (filter.minValue !== null) {
+                                filterValues = `>= ${filter.minValue}`;
+                            } else if (filter.maxValue !== null) {
+                                filterValues = `<= ${filter.maxValue}`;
+                            }
+                        } else if (filter.filterType === 'relative-date') {
+                            filterValues = filter.periodType || 'Relative Date Filter';
+                        }
+                        
+                        filterData.push([`  ${filter.fieldName}`, filterValues || 'All']);
+                    }
+                    
+                    filterData.push(['']); // Empty row between worksheets
+                }
+            } catch (error) {
+                console.log(`Could not get filters for ${ws.name}:`, error.message);
+            }
+        }
+        
+        // Get dashboard-level parameters
+        try {
+            const parameters = await dashboard.getParametersAsync();
+            if (parameters.length > 0) {
+                filterData.push(['DASHBOARD PARAMETERS', '']);
+                for (const param of parameters) {
+                    filterData.push([`  ${param.name}`, param.currentValue.value || 'Not Set']);
+                }
+                hasFilters = true;
+            }
+        } catch (error) {
+            console.log('Could not get parameters:', error.message);
+        }
+        
+        if (!hasFilters) {
+            filterData.push(['No filters currently applied', '']);
+        }
+        
+        return filterData;
+        
+    } catch (error) {
+        console.error('Error collecting dashboard filters:', error);
+        return [
+            ['DASHBOARD EXPORT SUMMARY'],
+            [''],
+            ['Dashboard Name:', dashboard.name],
+            ['Export Date:', new Date().toLocaleString()],
+            [''],
+            ['Error collecting filters:', error.message]
+        ];
+    }
+}
+
 // Show status message
 function showStatus(message, type) {
     const statusDiv = document.getElementById('status');
@@ -618,12 +711,14 @@ async function exportToExcel() {
     });
     
     // Get distinct values option
-    const showDistinctOnly = document.getElementById('showDistinctOnly')?.checked || false;    
+    const showDistinctOnly = document.getElementById('showDistinctOnly')?.checked || false;
+    const includeDashboardFilters = document.getElementById('includeDashboardFilters')?.checked || false;
 
     console.log('Export options:', {
         worksheets: selectedWorksheets.length,
         worksheetColumns: Array.from(worksheetColumns.entries()).map(([name, cols]) => `${name}: ${cols.names.length} columns`),
-        distinctOnly: showDistinctOnly
+        distinctOnly: showDistinctOnly,
+        includeFilters: includeDashboardFilters
     });
 
     setLoading(true);
@@ -631,6 +726,24 @@ async function exportToExcel() {
 
     try {
         const workbook = XLSX.utils.book_new();
+
+        // Add Dashboard Filters summary sheet if requested
+        if (includeDashboardFilters) {
+            showStatus('Collecting dashboard filters...', 'info');
+            const filterSummary = await collectDashboardFilters();
+            if (filterSummary && filterSummary.length > 0) {
+                const filterSheet = XLSX.utils.aoa_to_sheet(filterSummary);
+                
+                // Set column widths
+                filterSheet['!cols'] = [
+                    { wch: 30 },  // Filter Name
+                    { wch: 50 }   // Values
+                ];
+                
+                XLSX.utils.book_append_sheet(workbook, filterSheet, 'Dashboard Filters');
+                console.log('Added Dashboard Filters sheet');
+            }
+        }
 
         for (const worksheetName of selectedWorksheets) {
             const worksheet = worksheets.find(ws => ws.name === worksheetName);

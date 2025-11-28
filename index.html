@@ -471,7 +471,7 @@
             <h2>Select Worksheets</h2>
             <div class="button-group">
                 <button class="btn-select-all" onclick="selectAll()">Select All</button>
-                <button class="btn-deselect-all" onclick="deselectAll()">Deselect All</button> <button class="btn-refresh" onclick="refreshAll()" title="Refresh worksheets and columns after changing parameters"> Refresh</button>
+                <button class="btn-deselect-all" onclick="deselectAll()">Deselect All</button> <button class="btn-refresh" onclick="refreshAll()" title="Refresh worksheets and columns after changing parameters"> Refresh</button>`n                <p style="font-size: 12px; color: #666; margin: 8px 0 0 0; font-style: italic;"> Click Refresh after changing dashboard parameters/filters to reload columns</p>
             </div>
 
             <div class="worksheet-list" id="worksheetList">
@@ -482,7 +482,19 @@
             <div class="format-options" style="margin-top: 20px;">
                 <h3>🎯 Column & Data Options</h3>
                 
+                
                 <div style="margin-bottom: 15px;">
+                    <label style="display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="includeDashboardFilters"
+                               style="width: 20px; height: 20px; margin-right: 10px; accent-color: #00acee;">
+                        <span style="font-weight: 600; color: #005eb8;">Include Dashboard Filters Summary</span>
+                    </label>
+                    <p style="color: #666; font-size: 13px; margin: 5px 0 0 30px; line-height: 1.5;">
+                        When enabled: Adds a first sheet with dashboard name and all active filters<br>
+                        <em>Example: Shows which filters were applied when data was exported</em>
+                    </p>
+                </div>
+<div style="margin-bottom: 15px;">
                     <label style="display: flex; align-items: center; cursor: pointer;">
                         <input type="checkbox" id="showDistinctOnly" 
                                style="width: 20px; height: 20px; margin-right: 10px; accent-color: #00acee;">
