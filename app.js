@@ -151,6 +151,7 @@ function selectAll() {
     const checkboxes = document.querySelectorAll('.worksheet-item input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = true);
     updateExportButton();
+    handleWorksheetSelection();
 }
 
 // Deselect all worksheets
@@ -158,6 +159,7 @@ function deselectAll() {
     const checkboxes = document.querySelectorAll('.worksheet-item input[type="checkbox"]');
     checkboxes.forEach(cb => cb.checked = false);
     updateExportButton();
+    handleWorksheetSelection();
 }
 
 // Update export button state
@@ -236,6 +238,32 @@ async function handleWorksheetSelection() {
                 const tabContent = document.createElement('div');
                 tabContent.className = 'tab-content' + (selectedWorksheets.indexOf(worksheetName) === 0 ? ' active' : '');
                 tabContent.id = 'tab-' + worksheetName;
+
+                // Add select/deselect buttons for this worksheet
+                const buttonGroup = document.createElement('div');
+                buttonGroup.style.cssText = 'margin-bottom: 10px; display: flex; gap: 8px;';
+                
+                const selectAllBtn = document.createElement('button');
+                selectAllBtn.textContent = 'Select All';
+                selectAllBtn.className = 'btn-select-all';
+                selectAllBtn.style.cssText = 'flex: 1; font-size: 13px; padding: 6px 12px;';
+                selectAllBtn.onclick = (e) => {
+                    e.preventDefault();
+                    tabContent.querySelectorAll('.column-item input[type="checkbox"]').forEach(cb => cb.checked = true);
+                };
+                
+                const deselectAllBtn = document.createElement('button');
+                deselectAllBtn.textContent = 'Deselect All';
+                deselectAllBtn.className = 'btn-deselect-all';
+                deselectAllBtn.style.cssText = 'flex: 1; font-size: 13px; padding: 6px 12px;';
+                deselectAllBtn.onclick = (e) => {
+                    e.preventDefault();
+                    tabContent.querySelectorAll('.column-item input[type="checkbox"]').forEach(cb => cb.checked = false);
+                };
+                
+                buttonGroup.appendChild(selectAllBtn);
+                buttonGroup.appendChild(deselectAllBtn);
+                tabContent.appendChild(buttonGroup);
 
                 // Add columns for this worksheet
                 columns.forEach((column, index) => {
@@ -340,6 +368,32 @@ function displayColumnSelection(columns, worksheetName) {
         columnList.appendChild(header);
     }
     
+    // Add select/deselect buttons for single worksheet
+    const buttonGroup = document.createElement('div');
+    buttonGroup.style.cssText = 'margin-bottom: 10px; display: flex; gap: 8px;';
+    
+    const selectAllBtn = document.createElement('button');
+    selectAllBtn.textContent = 'Select All Columns';
+    selectAllBtn.className = 'btn-select-all';
+    selectAllBtn.style.cssText = 'flex: 1; font-size: 13px; padding: 6px 12px;';
+    selectAllBtn.onclick = (e) => {
+        e.preventDefault();
+        columnList.querySelectorAll('.column-item input[type="checkbox"]').forEach(cb => cb.checked = true);
+    };
+    
+    const deselectAllBtn = document.createElement('button');
+    deselectAllBtn.textContent = 'Deselect All Columns';
+    deselectAllBtn.className = 'btn-deselect-all';
+    deselectAllBtn.style.cssText = 'flex: 1; font-size: 13px; padding: 6px 12px;';
+    deselectAllBtn.onclick = (e) => {
+        e.preventDefault();
+        columnList.querySelectorAll('.column-item input[type="checkbox"]').forEach(cb => cb.checked = false);
+    };
+    
+    buttonGroup.appendChild(selectAllBtn);
+    buttonGroup.appendChild(deselectAllBtn);
+    columnList.appendChild(buttonGroup);
+    
     columns.forEach((column, index) => {
         const div = document.createElement('div');
         div.className = 'column-item';
@@ -395,17 +449,8 @@ function displayColumnSelection(columns, worksheetName) {
     });
 }
 
-// Select all columns
-function selectAllColumns() {
-    const checkboxes = document.querySelectorAll('.column-item input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = true);
-}
-
-// Deselect all columns
-function deselectAllColumns() {
-    const checkboxes = document.querySelectorAll('.column-item input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = false);
-}
+// Note: Select/Deselect all columns functionality is now per-worksheet
+// Individual buttons are created dynamically for each worksheet tab
 
 // Refresh worksheets and columns (clear cache and reload)
 function refreshAll() {
@@ -725,14 +770,16 @@ async function exportToExcel() {
         window.worksheetColumns.delete(key);
     });
     
-    // Get distinct values option
-    const showDistinctOnly = document.getElementById('showDistinctOnly')?.checked || false;
+    // Get aggregation option (default is distinct/aggregated, checkbox enables duplicates)
+    const includeDuplicateRows = document.getElementById('includeDuplicateRows')?.checked || false;
+    const showDistinctOnly = !includeDuplicateRows; // Invert: default is distinct, checkbox adds duplicates
     const includeDashboardFilters = document.getElementById('includeDashboardFilters')?.checked || false;
 
     console.log('Export options:', {
         worksheets: selectedWorksheets.length,
         worksheetColumns: Array.from(worksheetColumns.entries()).map(([name, cols]) => `${name}: ${cols.names.length} columns`),
         distinctOnly: showDistinctOnly,
+        includeDuplicates: includeDuplicateRows,
         includeFilters: includeDashboardFilters
     });
 
@@ -842,8 +889,8 @@ async function exportToExcel() {
 
         XLSX.writeFile(workbook, filename);
 
-        const distinctMsg = showDistinctOnly ? ' (distinct values only)' : '';
-        showStatus(`✓ Successfully exported ${selectedWorksheets.length} worksheet(s) to ${filename}${distinctMsg}`, 'success');
+        const aggregationMsg = showDistinctOnly ? ' (aggregated - unique rows only)' : ' (includes all duplicate rows)';
+        showStatus(`✓ Successfully exported ${selectedWorksheets.length} worksheet(s) to ${filename}${aggregationMsg}`, 'success');
     } catch (error) {
         console.error('Export error:', error);
         showStatus(`✗ Error exporting: ${error.message}`, 'error');

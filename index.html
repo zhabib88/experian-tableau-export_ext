@@ -460,7 +460,7 @@
         <div class="content">
             <div class="format-options">
                 <h3>Export Features</h3>
-                <p style="color: #555; font-size: 14px; margin: 0; line-height: 1.6;">  Export multiple worksheets in one click<br>  Select specific columns to export<br>  Export distinct values only (remove duplicates)<br>  Automatically formatted Excel output
+                <p style="color: #555; font-size: 14px; margin: 0; line-height: 1.6;">  Export multiple worksheets in one click<br>  Select specific columns to export<br>  Include Duplicate Rows (remove duplicates)<br>  Automatically formatted Excel output
                 </p>
             </div>
 
@@ -492,24 +492,16 @@
                 </div>
 <div style="margin-bottom: 15px;">
                     <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="showDistinctOnly" 
-                               style="width: 20px; height: 20px; margin-right: 10px; accent-color: #00acee;">
-                        <span style="font-weight: 600; color: #005eb8;">Export Distinct Values Only</span>
+                        <input type="checkbox" id="includeDuplicateRows" style="width: 20px; height: 20px; margin-right: 10px; accent-color: #00acee;">
+                        <span style="font-weight: 600; color: #005eb8;">Include Duplicate Rows</span>
                     </label>
                     <p style="color: #666; font-size: 13px; margin: 5px 0 0 30px; line-height: 1.5;">
-                        When enabled: Exports only unique combinations of selected columns.<br>
-                        <em>Example: 100 rows with 4 distinct regions â†’ exports 4 unique region values</em>
+                        When enabled: Exports all rows including duplicates.<br>
+                        <em>Example: By default shows unique rows only. Check this to include all duplicate rows</em>
                     </p>
                 </div>
 
-                <div style="margin-top: 20px;">
-                    <button class="btn-select-all" onclick="selectAllColumns()" style="margin-right: 10px; font-size: 14px; padding: 8px 16px;">
-                        Select All Columns
-                    </button>
-                    <button class="btn-deselect-all" onclick="deselectAllColumns()" style="font-size: 14px; padding: 8px 16px;">
-                        Deselect All Columns
-                    </button>
-                </div>
+                
 
                 <div id="columnList" style="margin-top: 15px; max-height: 300px; overflow-y: auto;">
                     <!-- Columns will be populated here -->
