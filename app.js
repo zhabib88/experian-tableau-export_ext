@@ -96,7 +96,7 @@ function setupFilterChangeListeners() {
 }
 
 // Load all worksheets from the dashboard
-function loadWorksheets() {
+async function loadWorksheets() {
     try {
         console.log('Loading worksheets...');
         worksheets = dashboard.worksheets;
@@ -109,10 +109,35 @@ function loadWorksheets() {
             return;
         }
 
+        worksheetList.innerHTML = '<p style="color: #666; font-size: 13px;">Loading worksheet information...</p>';
+        
+        // Fetch column counts for all worksheets
+        const worksheetData = [];
+        for (const worksheet of worksheets) {
+            try {
+                const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
+                const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
+                worksheetData.push({
+                    worksheet: worksheet,
+                    columnCount: filteredColumns.length
+                });
+                console.log(`Worksheet "${worksheet.name}" has ${filteredColumns.length} columns`);
+            } catch (error) {
+                console.error(`Error fetching columns for ${worksheet.name}:`, error);
+                worksheetData.push({
+                    worksheet: worksheet,
+                    columnCount: 0
+                });
+            }
+        }
+        
         worksheetList.innerHTML = '';
         
-        worksheets.forEach((worksheet, index) => {
-            console.log('Adding worksheet:', worksheet.name);
+        worksheetData.forEach((data, index) => {
+            const worksheet = data.worksheet;
+            const columnCount = data.columnCount;
+            
+            console.log('Adding worksheet:', worksheet.name, `(${columnCount} columns)`);
             const div = document.createElement('div');
             div.className = 'worksheet-item';
             
@@ -120,7 +145,8 @@ function loadWorksheets() {
             checkbox.type = 'checkbox';
             checkbox.id = `worksheet_${index}`;
             checkbox.value = worksheet.name;
-            checkbox.checked = true;
+            // Only check by default if worksheet has columns
+            checkbox.checked = columnCount > 0;
             checkbox.onchange = () => {
                 updateExportButton();
                 handleWorksheetSelection();
@@ -128,7 +154,23 @@ function loadWorksheets() {
             
             const label = document.createElement('label');
             label.htmlFor = `worksheet_${index}`;
-            label.textContent = worksheet.name;
+            
+            // Add worksheet name with column count
+            const nameSpan = document.createElement('span');
+            nameSpan.textContent = worksheet.name;
+            nameSpan.style.marginRight = '8px';
+            
+            const countBadge = document.createElement('span');
+            countBadge.className = columnCount > 0 ? 'column-badge badge-dimension' : 'column-badge badge-measure';
+            countBadge.textContent = `${columnCount} columns`;
+            countBadge.style.fontSize = '11px';
+            countBadge.style.padding = '2px 6px';
+            if (columnCount === 0) {
+                countBadge.style.backgroundColor = '#dc3545';
+            }
+            
+            label.appendChild(nameSpan);
+            label.appendChild(countBadge);
             
             div.appendChild(checkbox);
             div.appendChild(label);
