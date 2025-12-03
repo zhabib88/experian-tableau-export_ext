@@ -166,7 +166,9 @@ async function loadWorksheets() {
             countBadge.style.fontSize = '11px';
             countBadge.style.padding = '2px 6px';
             if (columnCount === 0) {
-                countBadge.style.backgroundColor = '#dc3545';
+                countBadge.style.backgroundColor = '#fff3cd';
+                countBadge.style.color = '#856404';
+                countBadge.style.border = '1px solid #ffc107';
             }
             
             label.appendChild(nameSpan);
