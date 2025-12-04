@@ -3,6 +3,20 @@ let dashboard;
 let worksheets = [];
 window.worksheetColumns = new Map(); // Store columns for each worksheet (global for export)
 
+// Helper function to get display name from field name
+function getDisplayName(fieldName) {
+    // Remove aggregation functions like SUM(), AVG(), COUNT(), etc.
+    let displayName = fieldName;
+    
+    // Match aggregation pattern: AGG(FieldName) or SUM(FieldName), etc.
+    const aggMatch = fieldName.match(/^(SUM|AVG|COUNT|MIN|MAX|COUNTD|MEDIAN|STDEV|STDEVP|VAR|VARP|PERCENTILE|ATTR|AGG)\((.*)\)$/i);
+    if (aggMatch) {
+        displayName = aggMatch[2]; // Extract the field name from aggregation
+    }
+    
+    return displayName;
+}
+
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', () => {
     // Check if Tableau API is available
@@ -343,7 +357,7 @@ async function handleWorksheetSelection() {
                     const renameInput = document.createElement('input');
                     renameInput.type = 'text';
                     renameInput.className = 'column-rename-input';
-                    renameInput.value = column.fieldName;
+                    renameInput.value = getDisplayName(column.fieldName); // Use display name by default
                     renameInput.title = 'Click to rename for export';
                     renameInput.dataset.originalName = column.fieldName;
 
@@ -470,7 +484,7 @@ function displayColumnSelection(columns, worksheetName) {
         const renameInput = document.createElement('input');
         renameInput.type = 'text';
         renameInput.className = 'column-rename-input';
-        renameInput.value = column.fieldName;
+        renameInput.value = getDisplayName(column.fieldName); // Use display name by default
         renameInput.title = 'Click to rename for export';
         renameInput.dataset.originalName = column.fieldName;
 
