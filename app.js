@@ -753,9 +753,8 @@ async function exportToExcel() {
             }
         });
 
-        if (indices.length > 0) {
-            worksheetColumns.set(worksheetName, { indices, names, originalNames });
-        }
+        // Always add to map, even if no columns selected (to distinguish from "not configured")
+        worksheetColumns.set(worksheetName, { indices, names, originalNames });
     });
     
     // Handle single worksheet (no tabs, direct column list)
@@ -786,11 +785,12 @@ async function exportToExcel() {
             }
         });
 
-        if (indices.length > 0) {
-            worksheetColumns.set(worksheetName, { indices, names, originalNames });
-            console.log(`Single worksheet mode: ${names.length} columns selected for ${worksheetName}`, { indices, names });
+        // Always add to map, even if no columns selected (to distinguish from "not configured")
+        worksheetColumns.set(worksheetName, { indices, names, originalNames });
+        if (indices.length === 0) {
+            console.log(`Single worksheet mode: No columns selected for ${worksheetName}, will skip this worksheet`);
         } else {
-            console.log(`Single worksheet mode: No columns selected for ${worksheetName}, will use all non-AGG columns`);
+            console.log(`Single worksheet mode: ${names.length} columns selected for ${worksheetName}`, { indices, names });
         }
     }    // Save column selection config temporarily BEFORE clearing cache
     console.log('Saving user column selections before export...');
