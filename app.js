@@ -905,12 +905,16 @@ async function exportToExcel() {
                         console.log(`Exporting ${mappedIndices.length} matched columns for ${worksheetName}`, { mappedNames });
                         data = filterColumns(dataTable, mappedIndices, mappedNames, showDistinctOnly);
                     } else {
-                        console.log('No columns matched in fresh data, exporting all non-AGG columns');
-                        data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
+                        console.log('No columns matched in fresh data, skipping worksheet (no valid columns selected)');
+                        data = null; // Skip this worksheet
                     }
+                } else if (wsColumns && wsColumns.originalNames && wsColumns.originalNames.length === 0) {
+                    // User explicitly deselected all columns - skip this worksheet
+                    console.log(`No columns selected for ${worksheetName}, skipping worksheet export`);
+                    data = null;
                 } else {
-                    // No specific columns selected - export all non-AGG columns
-                    console.log(`No columns selected for ${worksheetName}, exporting all non-AGG columns (distinct: ${showDistinctOnly})`);
+                    // Column selection UI wasn't used or worksheet wasn't in config - export all non-AGG columns
+                    console.log(`No column selection config for ${worksheetName}, exporting all non-AGG columns (distinct: ${showDistinctOnly})`);
                     data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
                 }                if (data && data.length > 0) {
                     const sheetName = sanitizeSheetName(worksheetName);
@@ -920,6 +924,11 @@ async function exportToExcel() {
                     ws['!cols'] = colWidths;
 
                     XLSX.utils.book_append_sheet(workbook, ws, sheetName);
+                    console.log(`✓ Added worksheet "${sheetName}" to export`);
+                } else if (data === null) {
+                    console.log(`⊗ Skipped worksheet "${worksheetName}" - no columns selected`);
+                } else {
+                    console.log(`⚠ Worksheet "${worksheetName}" has no data to export`);
                 }
             } catch (error) {
                 console.error('Error processing worksheet', worksheetName, ':', error);
