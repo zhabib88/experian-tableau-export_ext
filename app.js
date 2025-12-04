@@ -828,15 +828,15 @@ async function exportToExcel() {
         window.worksheetColumns.delete(key);
     });
     
-    // Get aggregation option (default is distinct/aggregated, checkbox enables duplicates)
+    // Get aggregation option (default is to aggregate/sum measures, checkbox disables aggregation)
     const includeDuplicateRows = document.getElementById('includeDuplicateRows')?.checked || false;
-    const showDistinctOnly = !includeDuplicateRows; // Invert: default is distinct, checkbox adds duplicates
+    const aggregateData = !includeDuplicateRows; // Default: aggregate measures by dimensions
     const includeDashboardFilters = document.getElementById('includeDashboardFilters')?.checked || false;
 
     console.log('Export options:', {
         worksheets: selectedWorksheets.length,
         worksheetColumns: Array.from(worksheetColumns.entries()).map(([name, cols]) => `${name}: ${cols.names.length} columns`),
-        distinctOnly: showDistinctOnly,
+        aggregateData: aggregateData,
         includeDuplicates: includeDuplicateRows,
         includeFilters: includeDashboardFilters
     });
@@ -917,7 +917,7 @@ async function exportToExcel() {
                     
                     if (mappedIndices.length > 0) {
                         console.log(`Exporting ${mappedIndices.length} matched columns for ${worksheetName}`, { mappedNames });
-                        data = filterColumns(dataTable, mappedIndices, mappedNames, showDistinctOnly);
+                        data = filterColumns(dataTable, mappedIndices, mappedNames, aggregateData);
                     } else {
                         console.log('No columns matched in fresh data, skipping worksheet (no valid columns selected)');
                         data = null; // Skip this worksheet
@@ -928,8 +928,8 @@ async function exportToExcel() {
                     data = null;
                 } else {
                     // Column selection UI wasn't used or worksheet wasn't in config - export all non-AGG columns
-                    console.log(`No column selection config for ${worksheetName}, exporting all non-AGG columns (distinct: ${showDistinctOnly})`);
-                    data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, showDistinctOnly);
+                    console.log(`No column selection config for ${worksheetName}, exporting all non-AGG columns (aggregate: ${aggregateData})`);
+                    data = filterColumns(dataTable, filteredColumnIndices, filteredColumnNames, aggregateData);
                 }                if (data && data.length > 0) {
                     const sheetName = sanitizeSheetName(worksheetName);
                     const ws = XLSX.utils.aoa_to_sheet(data);
@@ -956,7 +956,7 @@ async function exportToExcel() {
 
         XLSX.writeFile(workbook, filename);
 
-        const aggregationMsg = showDistinctOnly ? ' (aggregated - unique rows only)' : ' (includes all duplicate rows)';
+        const aggregationMsg = aggregateData ? ' (aggregated - measures summed by dimensions)' : ' (includes all duplicate rows)';
         showStatus(`✓ Successfully exported ${selectedWorksheets.length} worksheet(s) to ${filename}${aggregationMsg}`, 'success');
     } catch (error) {
         console.error('Export error:', error);
@@ -964,33 +964,98 @@ async function exportToExcel() {
     } finally {
         setLoading(false);
     }
-}// Filter columns and optionally get distinct values
-function filterColumns(dataTable, selectedIndices, selectedNames, distinctOnly) {
+}// Filter columns and optionally aggregate data
+function filterColumns(dataTable, selectedIndices, selectedNames, aggregateData) {
     const data = [];
     
     // Add headers (selected columns only)
     data.push(selectedNames);
     
-    if (distinctOnly) {
-        // Get distinct values for selected columns
-        const distinctRows = new Set();
+    if (aggregateData) {
+        // Aggregate data: group by dimensions and sum measures
+        // First, identify which columns are dimensions vs measures
+        const columnTypes = selectedIndices.map(colIndex => {
+            const dataType = dataTable.columns[colIndex].dataType.toLowerCase();
+            const isDimension = !(dataType.includes('int') || dataType.includes('float') || dataType.includes('real'));
+            return { index: colIndex, isDimension };
+        });
         
-        for (let i = 0; i < dataTable.data.length; i++) {
-            const row = [];
-            for (const colIndex of selectedIndices) {
-                row.push(dataTable.data[i][colIndex].formattedValue);
+        const dimensionIndices = columnTypes.filter(c => c.isDimension).map(c => c.index);
+        const measureIndices = columnTypes.filter(c => !c.isDimension).map(c => c.index);
+        
+        console.log('Aggregating - Dimensions:', dimensionIndices.length, 'Measures:', measureIndices.length);
+        
+        if (dimensionIndices.length > 0 && measureIndices.length > 0) {
+            // Group by dimensions and aggregate measures
+            const aggregated = new Map();
+            
+            for (let i = 0; i < dataTable.data.length; i++) {
+                // Build dimension key
+                const dimValues = [];
+                for (const dimIndex of dimensionIndices) {
+                    dimValues.push(dataTable.data[i][dimIndex].formattedValue);
+                }
+                const key = dimValues.join('|||');
+                
+                if (!aggregated.has(key)) {
+                    aggregated.set(key, {
+                        dimensions: dimValues,
+                        measures: new Array(measureIndices.length).fill(0),
+                        count: 0
+                    });
+                }
+                
+                // Aggregate measures
+                const group = aggregated.get(key);
+                measureIndices.forEach((measureIndex, idx) => {
+                    const value = dataTable.data[i][measureIndex].value;
+                    // Try to parse as number, if it fails keep as 0
+                    const numValue = typeof value === 'number' ? value : parseFloat(value) || 0;
+                    group.measures[idx] += numValue;
+                });
+                group.count++;
             }
-            // Create unique key from row values
-            const rowKey = row.join('|||');
-            if (!distinctRows.has(rowKey)) {
-                distinctRows.add(rowKey);
+            
+            // Build output rows in the correct column order
+            aggregated.forEach(group => {
+                const row = new Array(selectedIndices.length);
+                
+                // Place dimensions in their positions
+                dimensionIndices.forEach((dimIndex, idx) => {
+                    const posInSelected = selectedIndices.indexOf(dimIndex);
+                    row[posInSelected] = group.dimensions[idx];
+                });
+                
+                // Place aggregated measures in their positions
+                measureIndices.forEach((measureIndex, idx) => {
+                    const posInSelected = selectedIndices.indexOf(measureIndex);
+                    row[posInSelected] = group.measures[idx];
+                });
+                
                 data.push(row);
+            });
+            
+            console.log(`Aggregated from ${dataTable.data.length} rows to ${data.length - 1} grouped rows`);
+        } else {
+            // No measures to aggregate or no dimensions to group by - just get distinct rows
+            const distinctRows = new Set();
+            
+            for (let i = 0; i < dataTable.data.length; i++) {
+                const row = [];
+                for (const colIndex of selectedIndices) {
+                    row.push(dataTable.data[i][colIndex].formattedValue);
+                }
+                const rowKey = row.join('|||');
+                if (!distinctRows.has(rowKey)) {
+                    distinctRows.add(rowKey);
+                    data.push(row);
+                }
             }
+            
+            console.log(`No aggregation needed - ${data.length - 1} distinct rows`);
         }
-        
-        console.log(`Filtered to ${data.length - 1} distinct rows from ${dataTable.data.length} total rows`);
     } else {
-        // Export all rows with selected columns
+        // Export all rows with selected columns (no aggregation)
         for (let i = 0; i < dataTable.data.length; i++) {
             const row = [];
             for (const colIndex of selectedIndices) {
@@ -998,6 +1063,8 @@ function filterColumns(dataTable, selectedIndices, selectedNames, distinctOnly) 
             }
             data.push(row);
         }
+        
+        console.log(`Exported all ${data.length - 1} rows without aggregation`);
     }
     
     return data;
