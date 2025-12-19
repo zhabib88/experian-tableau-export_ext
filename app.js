@@ -132,7 +132,7 @@ async function loadWorksheets() {
         for (const worksheet of worksheets) {
             // Find the dashboard object corresponding to this worksheet to get its title
             const dashboardObject = dashboardObjects.find(obj => obj.worksheet && obj.worksheet.name === worksheet.name);
-            const title = dashboardObject ? dashboardObject.name : worksheet.name; // Fallback to worksheet name if no title
+            const title = (dashboardObject && dashboardObject.caption) ? dashboardObject.caption : worksheet.name; // Use caption for title
 
             try {
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
