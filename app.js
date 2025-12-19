@@ -130,12 +130,13 @@ async function loadWorksheets() {
         for (const worksheet of worksheets) {
             try {
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-                const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
+                // Include all columns (including AGG columns like running sums)
+                const allColumns = dataTable.columns;
                 worksheetData.push({
                     worksheet: worksheet,
-                    columnCount: filteredColumns.length
+                    columnCount: allColumns.length
                 });
-                console.log(`Worksheet "${worksheet.name}" has ${filteredColumns.length} columns`);
+                console.log(`Worksheet "${worksheet.name}" has ${allColumns.length} columns`);
             } catch (error) {
                 console.error(`Error fetching columns for ${worksheet.name}:`, error);
                 worksheetData.push({
@@ -267,9 +268,9 @@ async function handleWorksheetSelection() {
                 // Check if we already have columns cached
                 if (!window.worksheetColumns.has(worksheetName)) {
                     const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-                    // Filter out AGG columns
-                    const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
-                    window.worksheetColumns.set(worksheetName, filteredColumns);
+                    // Include all columns (including AGG columns like running sums)
+                    const allColumns = dataTable.columns;
+                    window.worksheetColumns.set(worksheetName, allColumns);
                 }
 
                 const columns = window.worksheetColumns.get(worksheetName);
@@ -393,9 +394,9 @@ async function handleWorksheetSelection() {
             // Check if we already have columns cached
             if (!window.worksheetColumns.has(worksheetName)) {
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-                // Filter out AGG columns
-                const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
-                window.worksheetColumns.set(worksheetName, filteredColumns);
+                // Include all columns (including AGG columns like running sums)
+                const allColumns = dataTable.columns;
+                window.worksheetColumns.set(worksheetName, allColumns);
             }
 
             const columns = window.worksheetColumns.get(worksheetName);
@@ -878,16 +879,14 @@ async function exportToExcel() {
                 const dataTable = await worksheet.getSummaryDataAsync();
                 console.log(`Retrieved ${dataTable.data.length} rows for ${worksheetName}`);
                 
-                // Filter out AGG columns from the fresh data
+                // Include all columns (including AGG columns like running sums)
                 const filteredColumnIndices = [];
                 const filteredColumnNames = [];
                 dataTable.columns.forEach((col, idx) => {
-                    if (!col.fieldName.startsWith('AGG(')) {
-                        filteredColumnIndices.push(idx);
-                        filteredColumnNames.push(col.fieldName);
-                    }
+                    filteredColumnIndices.push(idx);
+                    filteredColumnNames.push(col.fieldName);
                 });
-                console.log(`Filtered out AGG columns: ${dataTable.columns.length} -> ${filteredColumnIndices.length} columns`);
+                console.log(`Total columns available: ${dataTable.columns.length}`);
 
                 let data;
 
@@ -905,13 +904,13 @@ async function exportToExcel() {
                         // Find this column in the fresh dataTable by field name
                         const freshColIndex = dataTable.columns.findIndex(col => col.fieldName === originalName);
                         
-                        if (freshColIndex >= 0 && !dataTable.columns[freshColIndex].fieldName.startsWith('AGG(')) {
-                            // Column exists in fresh data and is not AGG
+                        if (freshColIndex >= 0) {
+                            // Column exists in fresh data (including AGG columns)
                             mappedIndices.push(freshColIndex);
                             mappedNames.push(wsColumns.names[idx]);
                             console.log(`  ✓ Matched "${originalName}" → index ${freshColIndex}`);
                         } else {
-                            console.log(`  ✗ Column "${originalName}" not found in fresh data or is AGG`);
+                            console.log(`  ✗ Column "${originalName}" not found in fresh data`);
                         }
                     });
                     
