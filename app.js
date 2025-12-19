@@ -129,13 +129,43 @@ async function loadWorksheets() {
         const worksheetData = [];
         for (const worksheet of worksheets) {
             try {
+                // Get both summary data columns AND data source fields (includes marks)
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-                const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
+                const dataSources = await worksheet.getDataSourcesAsync();
+                
+                // Collect all unique columns from both sources
+                const allColumns = new Map();
+                
+                // Add summary data columns (from rows/columns)
+                dataTable.columns.forEach(col => {
+                    if (!col.fieldName.startsWith('AGG(')) {
+                        allColumns.set(col.fieldName, col);
+                    }
+                });
+                
+                // Add data source fields (includes measures from marks)
+                for (const dataSource of dataSources) {
+                    const fields = await dataSource.getFieldsAsync();
+                    fields.forEach(field => {
+                        const fieldName = field.name;
+                        if (!fieldName.startsWith('AGG(') && !allColumns.has(fieldName)) {
+                            // Create a column-like object for data source fields
+                            allColumns.set(fieldName, {
+                                fieldName: fieldName,
+                                dataType: field.dataType || 'string',
+                                isReferenced: field.isReferenced || false
+                            });
+                        }
+                    });
+                }
+                
+                const filteredColumns = Array.from(allColumns.values());
+                
                 worksheetData.push({
                     worksheet: worksheet,
                     columnCount: filteredColumns.length
                 });
-                console.log(`Worksheet "${worksheet.name}" has ${filteredColumns.length} columns`);
+                console.log(`Worksheet "${worksheet.name}" has ${filteredColumns.length} columns (including marks)`);
             } catch (error) {
                 console.error(`Error fetching columns for ${worksheet.name}:`, error);
                 worksheetData.push({
@@ -266,9 +296,37 @@ async function handleWorksheetSelection() {
                 
                 // Check if we already have columns cached
                 if (!window.worksheetColumns.has(worksheetName)) {
+                    // Get both summary data columns AND data source fields (includes marks)
                     const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-                    // Filter out AGG columns
-                    const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
+                    const dataSources = await worksheet.getDataSourcesAsync();
+                    
+                    // Collect all unique columns from both sources
+                    const allColumns = new Map();
+                    
+                    // Add summary data columns (from rows/columns)
+                    dataTable.columns.forEach(col => {
+                        if (!col.fieldName.startsWith('AGG(')) {
+                            allColumns.set(col.fieldName, col);
+                        }
+                    });
+                    
+                    // Add data source fields (includes measures from marks)
+                    for (const dataSource of dataSources) {
+                        const fields = await dataSource.getFieldsAsync();
+                        fields.forEach(field => {
+                            const fieldName = field.name;
+                            if (!fieldName.startsWith('AGG(') && !allColumns.has(fieldName)) {
+                                // Create a column-like object for data source fields
+                                allColumns.set(fieldName, {
+                                    fieldName: fieldName,
+                                    dataType: field.dataType || 'string',
+                                    isReferenced: field.isReferenced || false
+                                });
+                            }
+                        });
+                    }
+                    
+                    const filteredColumns = Array.from(allColumns.values());
                     window.worksheetColumns.set(worksheetName, filteredColumns);
                 }
 
@@ -392,9 +450,37 @@ async function handleWorksheetSelection() {
             
             // Check if we already have columns cached
             if (!window.worksheetColumns.has(worksheetName)) {
+                // Get both summary data columns AND data source fields (includes marks)
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
-                // Filter out AGG columns
-                const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
+                const dataSources = await worksheet.getDataSourcesAsync();
+                
+                // Collect all unique columns from both sources
+                const allColumns = new Map();
+                
+                // Add summary data columns (from rows/columns)
+                dataTable.columns.forEach(col => {
+                    if (!col.fieldName.startsWith('AGG(')) {
+                        allColumns.set(col.fieldName, col);
+                    }
+                });
+                
+                // Add data source fields (includes measures from marks)
+                for (const dataSource of dataSources) {
+                    const fields = await dataSource.getFieldsAsync();
+                    fields.forEach(field => {
+                        const fieldName = field.name;
+                        if (!fieldName.startsWith('AGG(') && !allColumns.has(fieldName)) {
+                            // Create a column-like object for data source fields
+                            allColumns.set(fieldName, {
+                                fieldName: fieldName,
+                                dataType: field.dataType || 'string',
+                                isReferenced: field.isReferenced || false
+                            });
+                        }
+                    });
+                }
+                
+                const filteredColumns = Array.from(allColumns.values());
                 window.worksheetColumns.set(worksheetName, filteredColumns);
             }
 
