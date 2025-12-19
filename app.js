@@ -127,31 +127,44 @@ async function loadWorksheets() {
         
         // Fetch column counts for all worksheets
         const worksheetData = [];
+        const dashboardObjects = dashboard.objects;
+
         for (const worksheet of worksheets) {
+            // Find the dashboard object corresponding to this worksheet to get its title
+            const dashboardObject = dashboardObjects.find(obj => obj.worksheet && obj.worksheet.name === worksheet.name);
+            const title = dashboardObject ? dashboardObject.name : worksheet.name; // Fallback to worksheet name if no title
+
             try {
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
                 const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
                 worksheetData.push({
                     worksheet: worksheet,
+                    title: title, // Store the title
                     columnCount: filteredColumns.length
                 });
-                console.log(`Worksheet "${worksheet.name}" has ${filteredColumns.length} columns`);
+                console.log(`Worksheet "${worksheet.name}" (Title: "${title}") has ${filteredColumns.length} columns`);
             } catch (error) {
                 console.error(`Error fetching columns for ${worksheet.name}:`, error);
                 worksheetData.push({
                     worksheet: worksheet,
+                    title: title,
                     columnCount: 0
                 });
             }
         }
         
-        worksheetList.innerHTML = '';
+        worksheetList.innerHTML = `
+            <div style="padding: 10px; background-color: #f0f0f0; border-bottom: 1px solid #ccc;">
+                <strong>Dashboard: ${dashboard.name}</strong>
+            </div>
+        `;
         
         worksheetData.forEach((data, index) => {
             const worksheet = data.worksheet;
+            const title = data.title;
             const columnCount = data.columnCount;
             
-            console.log('Adding worksheet:', worksheet.name, `(${columnCount} columns)`);
+            console.log('Adding worksheet:', worksheet.name, `(Title: ${title}, ${columnCount} columns)`);
             const div = document.createElement('div');
             div.className = 'worksheet-item';
             
@@ -169,9 +182,9 @@ async function loadWorksheets() {
             const label = document.createElement('label');
             label.htmlFor = `worksheet_${index}`;
             
-            // Add worksheet name with column count
+            // Add worksheet title and name with column count
             const nameSpan = document.createElement('span');
-            nameSpan.textContent = worksheet.name;
+            nameSpan.innerHTML = `${title} <em style="color: #555; font-size: 0.9em;">(${worksheet.name})</em>`;
             nameSpan.style.marginRight = '8px';
             
             const countBadge = document.createElement('span');
