@@ -2,6 +2,7 @@
 let dashboard;
 let worksheets = [];
 window.worksheetColumns = new Map(); // Store columns for each worksheet (global for export)
+window.worksheetTitles = new Map(); // Store titles for each worksheet
 
 // Helper function to get display name from field name
 function getDisplayName(fieldName) {
@@ -133,6 +134,7 @@ async function loadWorksheets() {
             // Find the dashboard object corresponding to this worksheet to get its title
             const dashboardObject = dashboardObjects.find(obj => obj.worksheet && obj.worksheet.name === worksheet.name);
             const title = (dashboardObject && dashboardObject.caption) ? dashboardObject.caption : worksheet.name; // Use caption for title
+            window.worksheetTitles.set(worksheet.name, title); // Store title for later use
 
             try {
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
@@ -439,9 +441,10 @@ function displayColumnSelection(columns, worksheetName) {
     
     // Add worksheet name header if provided
     if (worksheetName) {
+        const title = window.worksheetTitles.get(worksheetName) || worksheetName;
         const header = document.createElement('div');
         header.style.cssText = 'background: #005eb8; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; font-weight: 600; font-size: 14px;';
-        header.innerHTML = `📋 Columns from: ${worksheetName}`;
+        header.innerHTML = `📋 Columns from: ${title}`;
         columnList.appendChild(header);
     }
     
