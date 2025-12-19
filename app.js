@@ -128,8 +128,6 @@ async function loadWorksheets() {
         
         // Fetch column counts for all worksheets
         const worksheetData = [];
-        const dashboardObjects = dashboard.objects;
-
         for (const worksheet of worksheets) {
             // Find the dashboard object corresponding to this worksheet to get its title
             const dashboardObject = dashboardObjects.find(obj => obj.worksheet && obj.worksheet.name === worksheet.name);
