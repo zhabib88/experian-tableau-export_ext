@@ -2,7 +2,6 @@
 let dashboard;
 let worksheets = [];
 window.worksheetColumns = new Map(); // Store columns for each worksheet (global for export)
-window.worksheetTitles = new Map(); // Store titles for each worksheet
 
 // Helper function to get display name from field name
 function getDisplayName(fieldName) {
@@ -129,43 +128,30 @@ async function loadWorksheets() {
         // Fetch column counts for all worksheets
         const worksheetData = [];
         for (const worksheet of worksheets) {
-            // Find the dashboard object corresponding to this worksheet to get its title
-            const dashboardObject = dashboardObjects.find(obj => obj.worksheet && obj.worksheet.name === worksheet.name);
-            const title = (dashboardObject && dashboardObject.caption) ? dashboardObject.caption : worksheet.name; // Use caption for title
-            window.worksheetTitles.set(worksheet.name, title); // Store title for later use
-
             try {
                 const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
                 const filteredColumns = dataTable.columns.filter(col => !col.fieldName.startsWith('AGG('));
                 worksheetData.push({
                     worksheet: worksheet,
-                    title: title, // Store the title
                     columnCount: filteredColumns.length
                 });
-                console.log(`Worksheet "${worksheet.name}" (Title: "${title}") has ${filteredColumns.length} columns`);
+                console.log(`Worksheet "${worksheet.name}" has ${filteredColumns.length} columns`);
             } catch (error) {
                 console.error(`Error fetching columns for ${worksheet.name}:`, error);
                 worksheetData.push({
                     worksheet: worksheet,
-                    title: title,
                     columnCount: 0
                 });
             }
         }
         
-        worksheetList.innerHTML = `
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Dashboard</div>
-                <div style="font-size: 15px; font-weight: 600;">${dashboard.name}</div>
-            </div>
-        `;
+        worksheetList.innerHTML = '';
         
         worksheetData.forEach((data, index) => {
             const worksheet = data.worksheet;
-            const title = data.title;
             const columnCount = data.columnCount;
             
-            console.log('Adding worksheet:', worksheet.name, `(Title: ${title}, ${columnCount} columns)`);
+            console.log('Adding worksheet:', worksheet.name, `(${columnCount} columns)`);
             const div = document.createElement('div');
             div.className = 'worksheet-item';
             
@@ -183,14 +169,9 @@ async function loadWorksheets() {
             const label = document.createElement('label');
             label.htmlFor = `worksheet_${index}`;
             
-            // Add worksheet title and name with column count
+            // Add worksheet name with column count
             const nameSpan = document.createElement('span');
-            // Display title, and if different, show original name in parentheses
-            if (title && title !== worksheet.name) {
-                nameSpan.innerHTML = `${title} <em style="color: #555; font-size: 0.9em;">(${worksheet.name})</em>`;
-            } else {
-                nameSpan.textContent = worksheet.name;
-            }
+            nameSpan.textContent = worksheet.name;
             nameSpan.style.marginRight = '8px';
             
             const countBadge = document.createElement('span');
@@ -439,10 +420,9 @@ function displayColumnSelection(columns, worksheetName) {
     
     // Add worksheet name header if provided
     if (worksheetName) {
-        const title = window.worksheetTitles.get(worksheetName) || worksheetName;
         const header = document.createElement('div');
         header.style.cssText = 'background: #005eb8; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 10px; font-weight: 600; font-size: 14px;';
-        header.innerHTML = `📋 Columns from: ${title}`;
+        header.innerHTML = `📋 Columns from: ${worksheetName}`;
         columnList.appendChild(header);
     }
     
