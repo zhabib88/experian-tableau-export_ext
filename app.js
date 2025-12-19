@@ -154,8 +154,9 @@ async function loadWorksheets() {
         }
         
         worksheetList.innerHTML = `
-            <div style="padding: 10px; background-color: #f0f0f0; border-bottom: 1px solid #ccc;">
-                <strong>Dashboard: ${dashboard.name}</strong>
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Dashboard</div>
+                <div style="font-size: 15px; font-weight: 600;">${dashboard.name}</div>
             </div>
         `;
         
@@ -184,7 +185,12 @@ async function loadWorksheets() {
             
             // Add worksheet title and name with column count
             const nameSpan = document.createElement('span');
-            nameSpan.innerHTML = `${title} <em style="color: #555; font-size: 0.9em;">(${worksheet.name})</em>`;
+            // Display title, and if different, show original name in parentheses
+            if (title && title !== worksheet.name) {
+                nameSpan.innerHTML = `${title} <em style="color: #555; font-size: 0.9em;">(${worksheet.name})</em>`;
+            } else {
+                nameSpan.textContent = worksheet.name;
+            }
             nameSpan.style.marginRight = '8px';
             
             const countBadge = document.createElement('span');
