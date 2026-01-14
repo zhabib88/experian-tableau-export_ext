@@ -3,525 +3,617 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Experian Tableau Export Extension</title>
+    <title>Experian Crosstab Export</title>
+    
+    <!-- Tableau Extensions API -->
     <script src="tableau.extensions.1.4.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    
     <style>
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
         }
-
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%);
-            padding: 20px;
-            min-height: 100vh;
+            background: #f5f7fa;
+            color: #333;
+            overflow-x: hidden;
         }
-
+        
         .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 100%;
         }
-
+        
+        /* Header with Experian Branding */
         .header {
-            background: white;
-            padding: 30px;
-            text-align: center;
-            border-bottom: 4px solid #00acee;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        }
-
-        .logo {
-            max-width: 200px;
-            height: auto;
-            margin-bottom: 15px;
-        }
-
-        .header h1 {
-            color: #005eb8;
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .subtitle {
-            color: #4a5568;
-            font-size: 15px;
-            font-weight: 400;
-        }
-
-        .content {
-            padding: 30px;
-        }
-
-        h2 {
-            color: #005eb8;
-            margin-bottom: 10px;
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        h3 {
-            color: #005eb8;
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .worksheet-list {
-            margin-bottom: 30px;
-        }
-
-        .worksheet-item {
-            background: white;
-            padding: 16px;
-            margin-bottom: 10px;
-            border-radius: 8px;
+            background: linear-gradient(135deg, #0f2862 0%, #1e3a8a 100%);
+            color: white;
+            padding: 20px;
+            box-shadow: 0 2px 12px rgba(15,40,98,0.3);
             display: flex;
             align-items: center;
-            transition: all 0.3s ease;
-            border: 2px solid #e0e0e0;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            gap: 15px;
         }
-
-        .worksheet-item:hover {
-            background: #f0f8ff;
-            border-color: #00acee;
-            box-shadow: 0 3px 10px rgba(0, 172, 238, 0.2);
+        
+        .header-logo {
+            height: 40px;
+            width: auto;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-
-        .worksheet-item input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
-            margin-right: 15px;
-            cursor: pointer;
-            accent-color: #00acee;
-        }
-
-        .worksheet-item label {
+        
+        .header-content {
             flex: 1;
-            cursor: pointer;
-            font-size: 16px;
-            color: #333;
         }
-
-        .button-group {
+        
+        .header-info-icon {
+            width: 24px;
+            height: 24px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
             display: flex;
-            gap: 12px;
-            margin-bottom: 20px;
-        }
-
-        button {
-            flex: 1;
-            padding: 14px 28px;
-            font-size: 15px;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            letter-spacing: 0.3px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-export {
-            background: linear-gradient(135deg, #00acee 0%, #005eb8 100%);
-            color: white;
-            font-size: 17px;
-            padding: 16px 32px;
-            margin-top: 10px;
-        }
-
-        .btn-export:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 24px rgba(0, 94, 184, 0.4);
-        }
-
-        .btn-select-all {
-            background: #00acee;
-            color: white;
-        }
-
-        .btn-select-all:hover {
-            background: #0095d1;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(0, 172, 238, 0.3);
-        }
-
-        .btn-deselect-all {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-deselect-all:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(108, 117, 125, 0.3);
-        }
-
-        .btn-refresh {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-refresh:hover {
-            background: #218838;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(40, 167, 69, 0.3);
-        }
-
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .status {
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
+            align-items: center;
+            justify-content: center;
+            cursor: help;
             font-size: 14px;
-            display: none;
+            font-weight: bold;
+            transition: all 0.3s;
+            position: relative;
         }
-
+        
+        .header-info-icon:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+        
+        .header-info-icon .tooltip {
+            visibility: hidden;
+            width: 280px;
+            background-color: #1a1a1a;
+            color: #fff;
+            text-align: left;
+            border-radius: 8px;
+            padding: 12px;
+            position: absolute;
+            z-index: 1000;
+            top: 35px;
+            right: 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        .header-info-icon .tooltip::after {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            right: 8px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: transparent transparent #1a1a1a transparent;
+        }
+        
+        .header-info-icon:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        .tooltip-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #d4af37;
+        }
+        
+        .tooltip-item {
+            margin-bottom: 4px;
+            padding-left: 8px;
+        }
+        
+        .tooltip-item:before {
+            content: "• ";
+            color: #d4af37;
+            font-weight: bold;
+            margin-right: 4px;
+        }
+        
+        .header h1 {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+        
+        .header p {
+            font-size: 13px;
+            opacity: 0.95;
+        }
+        
+        /* Status Bar */
+        .status {
+            padding: 12px 20px;
+            font-size: 13px;
+            border-bottom: 1px solid #e1e8ed;
+            background: white;
+            min-height: 45px;
+        }
+        
         .status.success {
             background: #d4edda;
             color: #155724;
-            border: 1px solid #c3e6cb;
-            display: block;
+            border-color: #c3e6cb;
         }
-
+        
         .status.error {
             background: #f8d7da;
             color: #721c24;
-            border: 1px solid #f5c6cb;
-            display: block;
+            border-color: #f5c6cb;
         }
-
-        .status.info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-            display: block;
-        }
-
+        
         .status.warning {
             background: #fff3cd;
             color: #856404;
-            border: 1px solid #ffeeba;
+            border-color: #ffeaa7;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-color: #bee5eb;
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        .sidebar-left {
+            width: 320px;
+            background: white;
+            border-right: 1px solid #e1e8ed;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .content-right {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        /* Card Style */
+        .card {
+            background: white;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        .card-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: #d4af37;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Worksheet Selection */
+        .worksheet-item {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            border: 1px solid #e1e8ed;
+            background: white;
+        }
+        
+        .worksheet-item:hover {
+            background: #f8f9fa;
+            border-color: #d4af37;
+            transform: translateX(2px);
+            box-shadow: 0 2px 6px rgba(212,175,55,0.15);
+        }
+        
+        .worksheet-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            margin: 0;
+            flex-shrink: 0;
+            accent-color: #d4af37;
+        }
+        
+        .worksheet-item label {
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            margin: 0 0 0 10px;
+            flex: 1;
+            font-weight: 500;
+        }
+        
+        .column-badge {
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #e9ecef;
+            color: #495057;
+            margin-left: 8px;
+        }
+        
+        /* Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-block;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #d4af37 0%, #c5a028 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover:not(:disabled) {
+            background: linear-gradient(135deg, #e5c04a 0%, #d4af37 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(212,175,55,0.4);
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+        
+        /* Options */
+        .options-group {
+            margin: 15px 0;
+        }
+        
+        .option-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .option-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+        
+        .option-item label {
+            font-size: 14px;
+            cursor: pointer;
+        }
+        
+        /* Column Selection */
+        .column-section {
+            display: none;
+            margin-top: 20px;
+        }
+        
+        .column-section.active {
             display: block;
         }
-
-
+        
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e1e8ed;
+            overflow-x: auto;
+        }
+        
+        .tab-button {
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        .tab-button:hover {
+            background: #e9ecef;
+        }
+        
+        .tab-button.active {
+            background: white;
+            border-bottom-color: #d4af37;
+            color: #d4af37;
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .column-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            gap: 10px;
+        }
+        
+        .column-item:hover {
+            background: #e9ecef;
+        }
+        
+        .column-order-input {
+            width: 50px;
+            padding: 4px 8px;
+            border: 1px solid #d1d9e0;
+            border-radius: 4px;
+            font-size: 13px;
+            text-align: center;
+        }
+        
+        .column-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        
+        .column-rename-input {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #d1d9e0;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        .badge-measure {
+            background: #e7f3ff;
+            color: #0066cc;
+            border: 1px solid #b3d9ff;
+        }
+        
+        .badge-dimension {
+            background: #fff3e0;
+            color: #e65100;
+            border: 1px solid #ffcc80;
+        }
+        
+        .tab-info {
+            background: #fef9e7;
+            border-left: 4px solid #d4af37;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            border-radius: 4px;
+        }
+        
+        .btn-select-all, .btn-deselect-all {
+            padding: 6px 12px;
+            border: 1px solid #d1d9e0;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .btn-select-all:hover, .btn-deselect-all:hover {
+            background: #e9ecef;
+            border-color: #0080ff;
+        }
+        
+        /* Loading Indicator */
         .loading {
             display: none;
             text-align: center;
             padding: 20px;
         }
-
+        
         .loading.active {
             display: block;
         }
-
-        .spinner {
-            border: 4px solid #e0e0e0;
-            border-top: 4px solid #00acee;
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #d4af37;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
         }
-
+        
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-
-        .format-options {
-            background: #f0f8ff;
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border-left: 4px solid #00acee;
-            box-shadow: 0 2px 8px rgba(0, 94, 184, 0.1);
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
         }
-
-        .format-options h3 {
-            margin-bottom: 15px;
-            color: #005eb8;
-            font-size: 18px;
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
         }
-
-        .format-option {
-            margin-bottom: 10px;
-        }
-
-        .format-option label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .format-option input[type="radio"] {
-            margin-right: 10px;
-            accent-color: #667eea;
-        }
-
-        .column-item {
-            background: white;
-            padding: 8px 12px;
-            margin-bottom: 5px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            border: 1px solid #dee2e6;
-            cursor: grab;`n        user-select: none;`n}
-
-        .column-item:hover {
-            background: #f0f8ff;
-            border-color: #00acee;
-        }
-
-        .column-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            margin-right: 10px;
-            cursor: pointer;
-            accent-color: #00acee;
-        }
-
-        .column-item label {
-            flex: 1;
-            cursor: pointer;
-            font-size: 14px;
-            color: #333;
-        }
-
-        .column-badge {
-            font-size: 11px;
-            padding: 3px 8px;
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
             border-radius: 4px;
-            margin-left: 8px;
-            font-weight: 600;
         }
-
-        .badge-dimension {
-            background: #e3f2fd;
-            color: #005eb8;
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
         }
-
-        .badge-measure {
-            background: #e8f5e9;
-            color: #2e7d32;
+        
+        /* Responsive */
+        @media (max-width: 968px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .sidebar-left {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #e1e8ed;
+                max-height: 40vh;
+            }
         }
-
-        /* Tab Styles */
-        .tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #e0e0e0;
-            overflow-x: auto;
-        }
-
-        .tab-button {
-            padding: 12px 20px;
-            background: #f8f9fa;
-            border: none;
-            border-bottom: 3px solid transparent;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            color: #666;
-            transition: all 0.3s ease;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        .tab-button:hover {
-            background: #e9ecef;
-            color: #005eb8;
-        }
-
-        .tab-button.active {
-            background: white;
-            color: #005eb8;
-            border-bottom-color: #00acee;
-        }
-
-        .tab-content {
-            display: none;
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 10px 0;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        .tab-info {
-            background: #e3f2fd;
-            padding: 10px 15px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-size: 13px;
-            color: #005eb8;
-            border-left: 4px solid #00acee;
-        }
-    
-
-        .column-item.dragging {
-            opacity: 0.4;
-            background: #e3f2fd !important;
-            border: 2px dashed #005eb8 !important;
-            transform: scale(1.02);
-            cursor: grabbing !important;
-        }
-
-        .column-item.drag-over {
-            border-top: 4px solid #005eb8 !important;
-            background: #f0f8ff !important;
-        }
-
-        .drag-handle {
-            cursor: grab;
-            user-select: none;
-            padding: 0 5px;
-            color: #999;
-        }
-
-        .drag-handle:active {
-            cursor: grabbing;
-        }
-
-        .column-order-input {
-            width: 45px;
-            height: 32px;
-            text-align: center;
-            border: 2px solid #005eb8;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #005eb8;
-            background: white;
-            margin-right: 8px;
-        }
-
-        .column-order-input:focus {
-            outline: none;
-            border-color: #00acee;
-            background: #f0f8ff;
-        }
-
-        .column-order-input::-webkit-inner-spin-button,
-        .column-order-input::-webkit-outer-spin-button {
-            opacity: 1;
-            height: 30px;
-        }
-
-        .column-rename-input {
-            flex: 1;
-            padding: 6px 10px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            font-size: 14px;
-            color: #333;
-            background: white;
-            margin-right: 8px;
-            transition: all 0.2s ease;
-        }
-
-        .column-rename-input:focus {
-            outline: none;
-            border-color: #00acee;
-            background: #f0f8ff;
-            box-shadow: 0 0 0 3px rgba(0, 172, 238, 0.1);
-        }
-
-        .column-rename-input:hover {
-            border-color: #00acee;
-        }</style>
+    </style>
 </head>
 <body>
     <div class="container">
+        <!-- Header -->
         <div class="header">
-            <img src="experianlogo.png" alt="Experian" class="logo">
-            <h1>Tableau Export Extension</h1>
-            <p class="subtitle">Advanced Multi-Worksheet Excel Export Tool</p>
-        </div>
-
-        <div class="content">
-            <div class="format-options">
-                <h3>Export Features</h3>
-                <p style="color: #555; font-size: 14px; margin: 0; line-height: 1.6;">  Export multiple worksheets in one click<br>  Select specific columns to export<br>  Include Duplicate Rows<br>  Automatically formatted Excel output
-                </p>
+            <img src="experianlogo.png" alt="Experian" class="header-logo">
+            <div class="header-content">
+                <h1>Crosstab Export Extension</h1>
+                <p>Select worksheets and columns to export to Excel</p>
             </div>
-
-            <h2>Select Worksheets</h2>
-            <div class="button-group">
-                <button class="btn-select-all" onclick="selectAll()">Select All</button>
-                <button class="btn-deselect-all" onclick="deselectAll()">Deselect All</button> <button class="btn-refresh" onclick="refreshAll()" title="Refresh worksheets and columns after changing parameters"> Refresh</button></div>
-            <p style="font-size: 12px; color: #666; margin: 5px 0 15px 0; font-style: italic;"> Click Refresh button after changing dashboard parameters/filters to reload columns</p>
-
-            <div class="worksheet-list" id="worksheetList">
-                <p style="color: #666;">Loading worksheets...</p>
-            </div>
-
-        <div id="columnSelectionContainer" style="display: none;">
-            <div class="format-options" style="margin-top: 20px;">
-                <h3>Column & Data Options</h3>
-                
-                
-                <div style="margin-bottom: 15px;">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="includeDashboardFilters"
-                               style="width: 20px; height: 20px; margin-right: 10px; accent-color: #00acee;">
-                        <span style="font-weight: 600; color: #005eb8;">Include Dashboard Filters Summary</span>
-                    </label>
-                    <p style="color: #666; font-size: 13px; margin: 5px 0 0 30px; line-height: 1.5;">
-                        When enabled: Adds a first sheet with dashboard name and all active filters<br>
-                        <em>Example: Shows which filters were applied when data was exported</em>
-                    </p>
-                </div>
-<div style="margin-bottom: 15px;">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" id="includeDuplicateRows" style="width: 20px; height: 20px; margin-right: 10px; accent-color: #00acee;">
-                        <span style="font-weight: 600; color: #005eb8;">Include Duplicate Rows</span>
-                    </label>
-                    <p style="color: #666; font-size: 13px; margin: 5px 0 0 30px; line-height: 1.5;">
-                        When enabled: Exports all rows including duplicates.<br>
-                        <em>Example: By default shows unique rows only. Check this to include all duplicate rows</em>
-                    </p>
-                </div>
-
-                
-
-                <div id="columnList" style="margin-top: 15px; max-height: 300px; overflow-y: auto;">
-                    <!-- Columns will be populated here -->
+            <div class="header-info-icon">
+                ℹ️
+                <div class="tooltip">
+                    <div class="tooltip-title">Export Features</div>
+                    <div class="tooltip-item">Export multiple worksheets in one click</div>
+                    <div class="tooltip-item">Select specific columns to export</div>
+                    <div class="tooltip-item">Include Duplicate Rows</div>
+                    <div class="tooltip-item">Automatically formatted Excel output</div>
                 </div>
             </div>
         </div>
-
-            <button class="btn-export" id="exportBtn" onclick="exportToExcel()" disabled>Export to Excel
-            </button>
-
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p style="color: #005eb8; font-weight: 500;">Exporting worksheets... Please wait.</p>
+        
+        <!-- Status Bar -->
+        <div id="status" class="status">
+            Ready to export
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading">
+            <div class="loading-spinner"></div>
+            <p style="margin-top: 10px;">Exporting worksheets...</p>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Sidebar: Worksheet Selection -->
+            <div class="sidebar-left">
+                <div class="card-header" style="margin-bottom: 15px;">
+                    📋 Select Worksheets
+                </div>
+                
+                <div id="worksheetList">
+                    <p style="color: #666; font-size: 13px;">Loading worksheets...</p>
+                </div>
+                
+                <div class="btn-group" style="margin-top: 15px; flex-direction: column; gap: 8px;">
+                    <button class="btn btn-secondary" onclick="selectAll()" style="width: 100%;">Select All</button>
+                    <button class="btn btn-secondary" onclick="deselectAll()" style="width: 100%;">Deselect All</button>
+                    <button class="btn btn-secondary" onclick="refreshAll()" title="Refresh worksheets and columns" style="width: 100%;">
+                        🔄 Refresh
+                    </button>
+                </div>
             </div>
-
-            <div class="status" id="status"></div>
+            
+            <!-- Right Content: Column Configuration & Export -->
+            <div class="content-right">
+                <!-- Column Selection Card -->
+                <div id="columnSelectionContainer" class="card column-section">
+                    <div class="card-header">
+                        ⚙️ Configure Columns
+                    </div>
+                    
+                    <div id="columnList"></div>
+                </div>
+                
+                <!-- Export Options Card -->
+                <div class="card">
+                    <div class="card-header">
+                        🎛️ Export Options
+                    </div>
+                    
+                    <div class="options-group">
+                        <div class="option-item">
+                            <input type="checkbox" id="includeDuplicateRows">
+                            <label for="includeDuplicateRows">
+                                Include all duplicate rows (disable aggregation)
+                            </label>
+                        </div>
+                        
+                        <div class="option-item">
+                            <input type="checkbox" id="includeDashboardFilters" checked>
+                            <label for="includeDashboardFilters">
+                                Include dashboard filters summary sheet
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button id="exportBtn" class="btn btn-primary" onclick="exportToExcel()" disabled>
+                            📊 Export to Excel
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-
+    
+    <!-- JavaScript -->
     <script src="app.js"></script>
 </body>
 </html>
-
