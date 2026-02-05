@@ -1022,6 +1022,10 @@ function reorderColumns(tabContent, newPosition, movedItem) {
 function updateColumnOrder(tabContent) {
     const items = tabContent.querySelectorAll('.column-item');
     items.forEach((item, index) => {
+        const orderInput = item.querySelector('.column-order-input');
+        if (orderInput) {
+            orderInput.value = index + 1;
+        }
         const checkbox = item.querySelector('input[type="checkbox"]');
         if (checkbox) {
             checkbox.dataset.index = index;
