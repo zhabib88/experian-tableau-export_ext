@@ -400,31 +400,12 @@
             background: #f8f9fa;
             border-radius: 4px;
             gap: 10px;
-            border: 1px solid transparent;
         }
         
         .column-item:hover {
             background: #e9ecef;
         }
 
-        .column-item.dragging {
-            opacity: 0.7;
-            background: #fff8e1;
-            border: 1px dashed #d4af37;
-        }
-
-        .drag-handle {
-            font-weight: 700;
-            color: #7a7a7a;
-            cursor: grab;
-            user-select: none;
-            padding: 0 4px;
-            line-height: 1;
-        }
-
-        .column-item.dragging .drag-handle {
-            cursor: grabbing;
-        }
         
         .column-order-input {
             width: 50px;
@@ -594,7 +575,7 @@
                     <button class="btn btn-secondary" onclick="refreshAll()" title="Refresh worksheets and columns" style="width: 100%;">
                         🔄 Refresh
                     </button>
-                    <div class="refresh-note">Auto-refresh runs on open. Use Refresh after changing parameters or filters while the extension is open.</div>
+                    <div class="refresh-note">Auto-refresh runs on open. After exporting, click Refresh if you change filters, parameters, or worksheet structure.</div>
                 </div>
             </div>
             

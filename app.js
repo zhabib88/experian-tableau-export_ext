@@ -23,15 +23,6 @@ function getDisplayName(fieldName) {
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', () => {
     injectExportOptionToggles();
-    // Prevent browser-level drag/drop from triggering navigation or reloads
-    document.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-    }, true);
-    document.addEventListener('drop', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-    }, true);
     // Force dashboard filters checkbox to start unchecked if present
     setDefaultOptionStates();
     // Check if Tableau API is available
@@ -423,7 +414,7 @@ async function handleWorksheetSelection() {
 
                 const reorderHint = document.createElement('div');
                 reorderHint.style.cssText = 'margin: 0 0 10px 0; font-size: 12px; color: #666;';
-                reorderHint.textContent = 'Tip: Drag and drop to reorder columns.';
+                reorderHint.textContent = 'Tip: Type a position number to jump a field up or down.';
                 tabContent.appendChild(reorderHint);
 
                 // Sort controls for this worksheet
@@ -471,14 +462,37 @@ async function handleWorksheetSelection() {
                 columns.forEach((column, index) => {
                     const div = document.createElement('div');
                     div.className = 'column-item';
-                    div.draggable = true;
                     div.dataset.originalName = column.fieldName;
                     div.dataset.worksheet = worksheetName;
 
-                    const dragHandle = document.createElement('span');
-                    dragHandle.className = 'drag-handle';
-                    dragHandle.title = 'Drag to reorder';
-                    dragHandle.textContent = '::';
+                    // Order number input (editable)
+                    const orderInput = document.createElement('input');
+                    orderInput.type = 'text';
+                    orderInput.inputMode = 'numeric';
+                    orderInput.pattern = '\\d*';
+                    orderInput.className = 'column-order-input';
+                    orderInput.value = index + 1;
+                    orderInput.title = 'Change number to reorder';
+                    orderInput.style.width = '45px';
+                    orderInput.style.textAlign = 'center';
+
+                    orderInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                            e.preventDefault();
+                        }
+                    });
+
+                    orderInput.addEventListener('input', (e) => {
+                        e.target.value = String(e.target.value).replace(/[^0-9]/g, '');
+                    });
+
+                    // Reorder on change
+                    orderInput.addEventListener('change', (e) => {
+                        const newPosition = parseInt(e.target.value, 10);
+                        if (!Number.isNaN(newPosition)) {
+                            reorderColumns(tabContent, newPosition, div);
+                        }
+                    });
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
@@ -556,7 +570,7 @@ async function handleWorksheetSelection() {
 
                     // Drag and drop ordering is supported
 
-                    div.appendChild(dragHandle);
+                    div.appendChild(orderInput);
                     div.appendChild(checkbox);
                     div.appendChild(renameInput);
                     div.appendChild(badge);
@@ -564,7 +578,6 @@ async function handleWorksheetSelection() {
                     tabContent.appendChild(div);
                 });
 
-                setupDragAndDrop(tabContent);
                 columnList.appendChild(tabContent);
             }
         } else {
@@ -638,7 +651,7 @@ function displayColumnSelection(columns, worksheetName) {
 
     const reorderHint = document.createElement('div');
     reorderHint.style.cssText = 'margin: 0 0 10px 0; font-size: 12px; color: #666;';
-    reorderHint.textContent = 'Tip: Drag and drop to reorder columns.';
+    reorderHint.textContent = 'Tip: Type a position number to jump a field up or down.';
     columnList.appendChild(reorderHint);
 
     // Sort controls
@@ -685,14 +698,37 @@ function displayColumnSelection(columns, worksheetName) {
     columns.forEach((column, index) => {
         const div = document.createElement('div');
         div.className = 'column-item';
-        div.draggable = true;
         div.dataset.originalName = column.fieldName;
         div.dataset.worksheet = worksheetName;
 
-        const dragHandle = document.createElement('span');
-        dragHandle.className = 'drag-handle';
-        dragHandle.title = 'Drag to reorder';
-        dragHandle.textContent = '::';
+        // Order number input (editable)
+        const orderInput = document.createElement('input');
+        orderInput.type = 'text';
+        orderInput.inputMode = 'numeric';
+        orderInput.pattern = '\\d*';
+        orderInput.className = 'column-order-input';
+        orderInput.value = index + 1;
+        orderInput.title = 'Change number to reorder';
+        orderInput.style.width = '45px';
+        orderInput.style.textAlign = 'center';
+
+        orderInput.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+            }
+        });
+
+        orderInput.addEventListener('input', (e) => {
+            e.target.value = String(e.target.value).replace(/[^0-9]/g, '');
+        });
+
+        // Reorder on change
+        orderInput.addEventListener('change', (e) => {
+            const newPosition = parseInt(e.target.value, 10);
+            if (!Number.isNaN(newPosition)) {
+                reorderColumns(columnList, newPosition, div);
+            }
+        });
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -767,14 +803,13 @@ function displayColumnSelection(columns, worksheetName) {
             typeSelector.appendChild(option);
         });
 
-        div.appendChild(dragHandle);
+        div.appendChild(orderInput);
         div.appendChild(checkbox);
         div.appendChild(renameInput);
         div.appendChild(badge);
         div.appendChild(typeSelector);
         columnList.appendChild(div);
     });
-    setupDragAndDrop(columnList);
 }
 
 // Note: Select/Deselect all columns functionality is now per-worksheet
@@ -957,6 +992,33 @@ function getExportFormat() {
     return format;
 }
 
+// Reorder columns based on sequence number
+function reorderColumns(tabContent, newPosition, movedItem) {
+    const allItems = [...tabContent.querySelectorAll('.column-item')];
+    const currentIndex = allItems.indexOf(movedItem);
+
+    // Validate position
+    if (newPosition < 1) newPosition = 1;
+    if (newPosition > allItems.length) newPosition = allItems.length;
+
+    const newIndex = newPosition - 1;
+    if (newIndex === currentIndex) return;
+
+    // Remove item from current position
+    movedItem.remove();
+
+    // Insert at new position
+    if (newIndex >= allItems.length - 1) {
+        tabContent.appendChild(movedItem);
+    } else {
+        const referenceItem = allItems[newIndex];
+        tabContent.insertBefore(movedItem, referenceItem);
+    }
+
+    // Update all sequence numbers
+    updateColumnOrder(tabContent);
+}
+
 function updateColumnOrder(tabContent) {
     const items = tabContent.querySelectorAll('.column-item');
     items.forEach((item, index) => {
@@ -964,69 +1026,6 @@ function updateColumnOrder(tabContent) {
         if (checkbox) {
             checkbox.dataset.index = index;
         }
-    });
-}
-
-function setupDragAndDrop(container) {
-    if (!container || container.dataset.dragReady === 'true') return;
-    container.dataset.dragReady = 'true';
-
-    let draggedItem = null;
-
-    container.addEventListener('dragstart', (e) => {
-        const item = e.target.closest('.column-item');
-        if (!item) return;
-        if (e.target.closest('input, select, textarea')) {
-            e.preventDefault();
-            return;
-        }
-        e.stopPropagation();
-        draggedItem = item;
-        item.classList.add('dragging');
-        if (e.dataTransfer) {
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', '');
-        }
-    });
-
-    container.addEventListener('dragend', () => {
-        if (draggedItem) {
-            draggedItem.classList.remove('dragging');
-            draggedItem = null;
-            updateColumnOrder(container);
-        }
-    });
-
-    container.addEventListener('dragover', (e) => {
-        if (!draggedItem) return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.dataTransfer) {
-            e.dataTransfer.dropEffect = 'move';
-        }
-
-        const target = e.target.closest('.column-item');
-        if (!target || target === draggedItem) return;
-
-        const rect = target.getBoundingClientRect();
-        const before = (e.clientY - rect.top) < rect.height / 2;
-        if (before) {
-            container.insertBefore(draggedItem, target);
-        } else {
-            container.insertBefore(draggedItem, target.nextSibling);
-        }
-    });
-
-    container.addEventListener('drop', (e) => {
-        if (!draggedItem) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        const target = e.target.closest('.column-item');
-        if (!target) {
-            container.appendChild(draggedItem);
-        }
-        updateColumnOrder(container);
     });
 }
 
