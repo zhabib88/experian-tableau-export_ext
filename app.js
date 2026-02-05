@@ -414,7 +414,7 @@ async function handleWorksheetSelection() {
 
                 const reorderHint = document.createElement('div');
                 reorderHint.style.cssText = 'margin: 0 0 10px 0; font-size: 12px; color: #666;';
-                reorderHint.textContent = 'Tip: Drag and drop to reorder, or type a position number to move a field.';
+                reorderHint.textContent = 'Tip: Drag and drop to reorder columns.';
                 tabContent.appendChild(reorderHint);
 
                 // Sort controls for this worksheet
@@ -466,20 +466,10 @@ async function handleWorksheetSelection() {
                     div.dataset.originalName = column.fieldName;
                     div.dataset.worksheet = worksheetName;
 
-                    // Order number input (editable)
-                    const orderInput = document.createElement('input');
-                    orderInput.type = 'number';
-                    orderInput.className = 'column-order-input';
-                    orderInput.value = index + 1;
-                    orderInput.min = 1;
-                    orderInput.title = 'Change number to reorder';
-                    orderInput.style.width = '45px';
-                    orderInput.style.textAlign = 'center';
-                    
-                    // Reorder on change
-                    orderInput.addEventListener('change', (e) => {
-                        reorderColumns(tabContent, parseInt(e.target.value), div);
-                    });
+                    const dragHandle = document.createElement('span');
+                    dragHandle.className = 'drag-handle';
+                    dragHandle.title = 'Drag to reorder';
+                    dragHandle.textContent = '::';
 
                     const checkbox = document.createElement('input');
                     checkbox.type = 'checkbox';
@@ -557,7 +547,7 @@ async function handleWorksheetSelection() {
 
                     // Drag and drop ordering is supported
 
-                    div.appendChild(orderInput);
+                    div.appendChild(dragHandle);
                     div.appendChild(checkbox);
                     div.appendChild(renameInput);
                     div.appendChild(badge);
@@ -639,7 +629,7 @@ function displayColumnSelection(columns, worksheetName) {
 
     const reorderHint = document.createElement('div');
     reorderHint.style.cssText = 'margin: 0 0 10px 0; font-size: 12px; color: #666;';
-    reorderHint.textContent = 'Tip: Drag and drop to reorder, or type a position number to move a field.';
+    reorderHint.textContent = 'Tip: Drag and drop to reorder columns.';
     columnList.appendChild(reorderHint);
 
     // Sort controls
@@ -690,20 +680,10 @@ function displayColumnSelection(columns, worksheetName) {
         div.dataset.originalName = column.fieldName;
         div.dataset.worksheet = worksheetName;
 
-        // Order number input (editable)
-        const orderInput = document.createElement('input');
-        orderInput.type = 'number';
-        orderInput.className = 'column-order-input';
-        orderInput.value = index + 1;
-        orderInput.min = 1;
-        orderInput.title = 'Change number to reorder';
-        orderInput.style.width = '45px';
-        orderInput.style.textAlign = 'center';
-
-        // Reorder on change
-        orderInput.addEventListener('change', (e) => {
-            reorderColumns(columnList, parseInt(e.target.value), div);
-        });
+        const dragHandle = document.createElement('span');
+        dragHandle.className = 'drag-handle';
+        dragHandle.title = 'Drag to reorder';
+        dragHandle.textContent = '::';
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
@@ -778,7 +758,7 @@ function displayColumnSelection(columns, worksheetName) {
             typeSelector.appendChild(option);
         });
 
-        div.appendChild(orderInput);
+        div.appendChild(dragHandle);
         div.appendChild(checkbox);
         div.appendChild(renameInput);
         div.appendChild(badge);
@@ -968,40 +948,9 @@ function getExportFormat() {
     return format;
 }
 
-// Reorder columns based on sequence number
-function reorderColumns(tabContent, newPosition, movedItem) {
-    const allItems = [...tabContent.querySelectorAll('.column-item')];
-    const currentIndex = allItems.indexOf(movedItem);
-    
-    // Validate position
-    if (newPosition < 1) newPosition = 1;
-    if (newPosition > allItems.length) newPosition = allItems.length;
-    
-    const newIndex = newPosition - 1;
-    if (newIndex === currentIndex) return;
-    
-    // Remove item from current position
-    movedItem.remove();
-    
-    // Insert at new position
-    if (newIndex >= allItems.length - 1) {
-        tabContent.appendChild(movedItem);
-    } else {
-        const referenceItem = allItems[newIndex];
-        tabContent.insertBefore(movedItem, referenceItem);
-    }
-    
-    // Update all sequence numbers
-    updateColumnOrder(tabContent);
-}
-
 function updateColumnOrder(tabContent) {
     const items = tabContent.querySelectorAll('.column-item');
     items.forEach((item, index) => {
-        const orderInput = item.querySelector('.column-order-input');
-        if (orderInput) {
-            orderInput.value = index + 1;
-        }
         const checkbox = item.querySelector('input[type="checkbox"]');
         if (checkbox) {
             checkbox.dataset.index = index;
