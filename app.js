@@ -23,6 +23,15 @@ function getDisplayName(fieldName) {
 // Wait for DOM to load
 document.addEventListener('DOMContentLoaded', () => {
     injectExportOptionToggles();
+    // Prevent browser-level drag/drop from triggering navigation or reloads
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, true);
+    document.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    }, true);
     // Force dashboard filters checkbox to start unchecked if present
     setDefaultOptionStates();
     // Check if Tableau API is available
@@ -971,6 +980,7 @@ function setupDragAndDrop(container) {
             e.preventDefault();
             return;
         }
+        e.stopPropagation();
         draggedItem = item;
         item.classList.add('dragging');
         if (e.dataTransfer) {
@@ -990,6 +1000,7 @@ function setupDragAndDrop(container) {
     container.addEventListener('dragover', (e) => {
         if (!draggedItem) return;
         e.preventDefault();
+        e.stopPropagation();
         if (e.dataTransfer) {
             e.dataTransfer.dropEffect = 'move';
         }
@@ -1009,6 +1020,7 @@ function setupDragAndDrop(container) {
     container.addEventListener('drop', (e) => {
         if (!draggedItem) return;
         e.preventDefault();
+        e.stopPropagation();
 
         const target = e.target.closest('.column-item');
         if (!target) {
