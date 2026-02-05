@@ -1026,7 +1026,6 @@ function setupDragAndDrop(container) {
         item.classList.add('dragging');
         if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/plain', '');
         }
     });
 
@@ -1040,19 +1039,9 @@ function setupDragAndDrop(container) {
 
     container.addEventListener('dragover', (e) => {
         if (!draggedItem) return;
-        e.preventDefault();
-
         const target = e.target.closest('.column-item');
-        if (!target || target === draggedItem) {
-            const lastItem = container.querySelector('.column-item:last-child');
-            if (lastItem && draggedItem !== lastItem) {
-                const rect = lastItem.getBoundingClientRect();
-                if (e.clientY > rect.bottom) {
-                    container.appendChild(draggedItem);
-                }
-            }
-            return;
-        }
+        if (!target || target === draggedItem) return;
+        e.preventDefault();
 
         const rect = target.getBoundingClientRect();
         const before = (e.clientY - rect.top) < rect.height / 2;
