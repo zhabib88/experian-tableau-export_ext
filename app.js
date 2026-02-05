@@ -3,6 +3,9 @@ let dashboard;
 let worksheets = [];
 window.worksheetColumns = new Map(); // Store columns for each worksheet (global for export)
 
+const MAX_ROWS_PER_SHEET = 200000; // Split very large exports to reduce memory pressure
+const MAX_COL_WIDTH_ROWS = 50000; // Skip expensive width calc beyond this size
+
 // Helper function to get display name from field name
 function getDisplayName(fieldName) {
     // Remove aggregation functions like SUM(), AVG(), COUNT(), etc.
@@ -1257,13 +1260,25 @@ async function exportToExcel() {
 
                 if (data && data.length > 0) {
                     const sheetName = sanitizeSheetName(worksheetName);
-                    const ws = XLSX.utils.aoa_to_sheet(data);
+                    const rowCount = Math.max(0, data.length - 1);
 
-                    const colWidths = calculateColumnWidths(data);
-                    ws['!cols'] = colWidths;
+                    if (rowCount > MAX_ROWS_PER_SHEET) {
+                        showStatus(`Large export detected for ${worksheetName} (${rowCount} rows). Splitting into parts...`, 'warning');
+                        const added = appendSheetWithChunks(workbook, sheetName, data, MAX_ROWS_PER_SHEET);
+                        console.log(`✓ Added ${added} sheet(s) for "${worksheetName}" (split export)`);
+                    } else {
+                        const ws = XLSX.utils.aoa_to_sheet(data);
 
-                    XLSX.utils.book_append_sheet(workbook, ws, sheetName);
-                    console.log(`✓ Added worksheet "${sheetName}" to export`);
+                        if (rowCount <= MAX_COL_WIDTH_ROWS) {
+                            const colWidths = calculateColumnWidths(data);
+                            ws['!cols'] = colWidths;
+                        } else {
+                            console.log(`Skipping column width calc for ${worksheetName} (${rowCount} rows)`);
+                        }
+
+                        XLSX.utils.book_append_sheet(workbook, ws, sheetName);
+                        console.log(`✓ Added worksheet "${sheetName}" to export`);
+                    }
                 } else if (data === null) {
                     console.log(`⊗ Skipped worksheet "${worksheetName}" - no columns selected`);
                 } else {
@@ -1273,6 +1288,11 @@ async function exportToExcel() {
                 console.error('Error processing worksheet', worksheetName, ':', error);
                 showStatus(`Error processing ${worksheetName}: ${error.message}`, 'error');
             }
+        }
+
+        if (workbook.SheetNames.length === 0) {
+            showStatus('✗ Export failed: No worksheets contained exportable data.', 'error');
+            return;
         }
 
         // Generate Excel file
@@ -1841,6 +1861,28 @@ function sanitizeSheetName(name) {
         sanitized = sanitized.substring(0, 31);
     }
     return sanitized;
+}
+
+function appendSheetWithChunks(workbook, baseSheetName, data, maxRowsPerSheet) {
+    if (!data || data.length === 0) return 0;
+
+    const header = data[0];
+    const rows = data.slice(1);
+    let sheetCount = 0;
+
+    for (let start = 0; start < rows.length; start += maxRowsPerSheet) {
+        const chunkRows = rows.slice(start, start + maxRowsPerSheet);
+        const chunkData = [header, ...chunkRows];
+        const sheetName = sheetCount === 0
+            ? baseSheetName
+            : sanitizeSheetName(`${baseSheetName} (${sheetCount + 1})`);
+
+        const ws = XLSX.utils.aoa_to_sheet(chunkData);
+        XLSX.utils.book_append_sheet(workbook, ws, sheetName);
+        sheetCount++;
+    }
+
+    return sheetCount;
 }
 
 // Calculate column widths for better formatting
