@@ -3,7 +3,7 @@ let dashboard;
 let worksheets = [];
 window.worksheetColumns = new Map(); // Store columns for each worksheet (global for export)
 
-const MAX_ROWS_PER_SHEET = 200000; // Split very large exports to reduce memory pressure
+const MAX_ROWS_PER_SHEET = 1048576; // Excel row limit (1,048,576)
 const MAX_COL_WIDTH_ROWS = 50000; // Skip expensive width calc beyond this size
 
 // Helper function to get display name from field name
@@ -414,7 +414,7 @@ async function handleWorksheetSelection() {
 
                 const reorderHint = document.createElement('div');
                 reorderHint.style.cssText = 'margin: 0 0 10px 0; font-size: 12px; color: #666;';
-                reorderHint.textContent = 'Tip: Type a position number to jump a field up or down.';
+                reorderHint.textContent = 'Tip: Drag and drop to reorder, or type a position number to move a field.';
                 tabContent.appendChild(reorderHint);
 
                 // Sort controls for this worksheet
@@ -462,6 +462,7 @@ async function handleWorksheetSelection() {
                 columns.forEach((column, index) => {
                     const div = document.createElement('div');
                     div.className = 'column-item';
+                    div.draggable = true;
                     div.dataset.originalName = column.fieldName;
                     div.dataset.worksheet = worksheetName;
 
@@ -554,7 +555,7 @@ async function handleWorksheetSelection() {
                         typeSelector.appendChild(option);
                     });
 
-                    // No drag events needed - using sequence numbers instead
+                    // Drag and drop ordering is supported
 
                     div.appendChild(orderInput);
                     div.appendChild(checkbox);
@@ -564,6 +565,7 @@ async function handleWorksheetSelection() {
                     tabContent.appendChild(div);
                 });
 
+                setupDragAndDrop(tabContent);
                 columnList.appendChild(tabContent);
             }
         } else {
@@ -637,7 +639,7 @@ function displayColumnSelection(columns, worksheetName) {
 
     const reorderHint = document.createElement('div');
     reorderHint.style.cssText = 'margin: 0 0 10px 0; font-size: 12px; color: #666;';
-    reorderHint.textContent = 'Tip: Type a position number to jump a field up or down.';
+    reorderHint.textContent = 'Tip: Drag and drop to reorder, or type a position number to move a field.';
     columnList.appendChild(reorderHint);
 
     // Sort controls
@@ -684,6 +686,7 @@ function displayColumnSelection(columns, worksheetName) {
     columns.forEach((column, index) => {
         const div = document.createElement('div');
         div.className = 'column-item';
+        div.draggable = true;
         div.dataset.originalName = column.fieldName;
         div.dataset.worksheet = worksheetName;
 
@@ -782,6 +785,7 @@ function displayColumnSelection(columns, worksheetName) {
         div.appendChild(typeSelector);
         columnList.appendChild(div);
     });
+    setupDragAndDrop(columnList);
 }
 
 // Note: Select/Deselect all columns functionality is now per-worksheet
@@ -1002,6 +1006,56 @@ function updateColumnOrder(tabContent) {
         if (checkbox) {
             checkbox.dataset.index = index;
         }
+    });
+}
+
+function setupDragAndDrop(container) {
+    if (!container || container.dataset.dragReady === 'true') return;
+    container.dataset.dragReady = 'true';
+
+    let draggedItem = null;
+
+    container.addEventListener('dragstart', (e) => {
+        const item = e.target.closest('.column-item');
+        if (!item) return;
+        if (e.target.closest('input, select, textarea')) {
+            e.preventDefault();
+            return;
+        }
+        draggedItem = item;
+        item.classList.add('dragging');
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+        }
+    });
+
+    container.addEventListener('dragend', () => {
+        if (draggedItem) {
+            draggedItem.classList.remove('dragging');
+            draggedItem = null;
+            updateColumnOrder(container);
+        }
+    });
+
+    container.addEventListener('dragover', (e) => {
+        if (!draggedItem) return;
+        const target = e.target.closest('.column-item');
+        if (!target || target === draggedItem) return;
+        e.preventDefault();
+
+        const rect = target.getBoundingClientRect();
+        const before = (e.clientY - rect.top) < rect.height / 2;
+        if (before) {
+            container.insertBefore(draggedItem, target);
+        } else {
+            container.insertBefore(draggedItem, target.nextSibling);
+        }
+    });
+
+    container.addEventListener('drop', (e) => {
+        if (!draggedItem) return;
+        e.preventDefault();
+        updateColumnOrder(container);
     });
 }
 
