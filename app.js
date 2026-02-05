@@ -975,6 +975,7 @@ function setupDragAndDrop(container) {
         item.classList.add('dragging');
         if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', '');
         }
     });
 
@@ -988,9 +989,13 @@ function setupDragAndDrop(container) {
 
     container.addEventListener('dragover', (e) => {
         if (!draggedItem) return;
+        e.preventDefault();
+        if (e.dataTransfer) {
+            e.dataTransfer.dropEffect = 'move';
+        }
+
         const target = e.target.closest('.column-item');
         if (!target || target === draggedItem) return;
-        e.preventDefault();
 
         const rect = target.getBoundingClientRect();
         const before = (e.clientY - rect.top) < rect.height / 2;
@@ -1004,6 +1009,11 @@ function setupDragAndDrop(container) {
     container.addEventListener('drop', (e) => {
         if (!draggedItem) return;
         e.preventDefault();
+
+        const target = e.target.closest('.column-item');
+        if (!target) {
+            container.appendChild(draggedItem);
+        }
         updateColumnOrder(container);
     });
 }
