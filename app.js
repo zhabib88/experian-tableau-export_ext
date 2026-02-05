@@ -132,7 +132,8 @@ function initializeExtension() {
         // Listen for filter changes on all worksheets
         setupFilterChangeListeners();
         
-        loadWorksheets();
+        // Auto-refresh on open to pick up parameter/structure changes
+        refreshAll({ auto: true });
     }).catch((error) => {
         console.error('Error initializing extension:', error);
         showStatus('Error initializing extension: ' + error.message, 'error');
@@ -408,6 +409,11 @@ async function handleWorksheetSelection() {
                 buttonGroup.appendChild(deselectAllBtn);
                 tabContent.appendChild(buttonGroup);
 
+                const reorderHint = document.createElement('div');
+                reorderHint.style.cssText = 'margin: 0 0 10px 0; font-size: 12px; color: #666;';
+                reorderHint.textContent = 'Tip: Type a position number to jump a field up or down.';
+                tabContent.appendChild(reorderHint);
+
                 // Sort controls for this worksheet
                 const sortContainer = document.createElement('div');
                 sortContainer.style.cssText = 'display: flex; gap: 8px; align-items: center; margin-bottom: 10px;';
@@ -578,7 +584,7 @@ async function handleWorksheetSelection() {
         
     } catch (error) {
         console.error('Error loading columns:', error);
-        columnList.innerHTML = '<p style="color: #dc3545; font-size: 13px;">Error loading columns</p>';
+        columnList.innerHTML = '<p style="color: #dc3545; font-size: 13px;">Error loading columns. Reduce data or refresh and try again.</p>';
     }
 }
 
@@ -625,6 +631,11 @@ function displayColumnSelection(columns, worksheetName) {
     buttonGroup.appendChild(selectAllBtn);
     buttonGroup.appendChild(deselectAllBtn);
     columnList.appendChild(buttonGroup);
+
+    const reorderHint = document.createElement('div');
+    reorderHint.style.cssText = 'margin: 0 0 10px 0; font-size: 12px; color: #666;';
+    reorderHint.textContent = 'Tip: Type a position number to jump a field up or down.';
+    columnList.appendChild(reorderHint);
 
     // Sort controls
     const sortContainer = document.createElement('div');
@@ -775,8 +786,11 @@ function displayColumnSelection(columns, worksheetName) {
 
 // Refresh worksheets and columns (clear cache and reload)
 function refreshAll() {
-    console.log('Manual refresh triggered');
-    showStatus('Refreshing worksheets and columns...', 'info');
+    const options = arguments.length > 0 ? arguments[0] : {};
+    const auto = !!options.auto;
+
+    console.log(auto ? 'Auto refresh triggered' : 'Manual refresh triggered');
+    showStatus(auto ? 'Auto-refreshing worksheets and columns...' : 'Refreshing worksheets and columns...', 'info');
     
     // Clear all cached data
     console.log('Clearing all cached column data...');
@@ -785,7 +799,7 @@ function refreshAll() {
     // Reload worksheets
     loadWorksheets();
     
-    showStatus('✓ Refreshed successfully', 'success');
+    showStatus(auto ? '✓ Auto-refresh complete' : '✓ Refreshed successfully', 'success');
 }
 
 // Collect dashboard filters information
@@ -1271,7 +1285,13 @@ async function exportToExcel() {
         showStatus(`✓ Successfully exported ${selectedWorksheets.length} worksheet(s) to ${filename}${aggregationMsg}`, 'success');
     } catch (error) {
         console.error('Export error:', error);
-        showStatus(`✗ Error exporting: ${error.message}`, 'error');
+        const msg = (error && error.message) ? error.message : 'Unknown error';
+        const lowerMsg = msg.toLowerCase();
+        if (lowerMsg.includes('workbook is empty')) {
+            showStatus('✗ Export failed: Workbook is empty. Reduce the data volume and try again.', 'error');
+        } else {
+            showStatus(`✗ Error exporting: ${msg}`, 'error');
+        }
     } finally {
         setLoading(false);
     }
