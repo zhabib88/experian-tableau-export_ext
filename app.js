@@ -26,12 +26,15 @@ function isDataAllNull(dataTable) {
 
 // Helper: fetch worksheet data with automatic fallback for Table Extension worksheets
 async function getWorksheetDataAsync(worksheet, worksheetName, options) {
-    let dataTable = await worksheet.getSummaryDataAsync(options);
+    // ignoreSelection: true is critical for Table Extension worksheets —
+    // without it, getSummaryDataAsync() can return all-null values.
+    const mergedOptions = { ignoreSelection: true, ...(options || {}) };
+    let dataTable = await worksheet.getSummaryDataAsync(mergedOptions);
 
-    // If requesting full data (no maxRows:1) and data appears all-null, try underlying data
+    // If requesting full data (no maxRows:1) and data still appears all-null, try underlying data
     if (!options || !options.maxRows) {
         if (dataTable.data.length > 0 && isDataAllNull(dataTable)) {
-            console.warn(`Summary data for "${worksheetName}" contains all null values — likely a Table Extension worksheet. Trying underlying data fallback...`);
+            console.warn(`Summary data for "${worksheetName}" contains all null values even with ignoreSelection — trying underlying data fallback...`);
             try {
                 if (typeof worksheet.getUnderlyingDataAsync === 'function') {
                     const underlyingData = await worksheet.getUnderlyingDataAsync({ maxRows: 0 });
@@ -268,7 +271,7 @@ async function loadWorksheets() {
         const worksheetData = [];
         for (const worksheet of worksheets) {
             try {
-                const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
+                const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1, ignoreSelection: true });
                 // Include all columns (including AGG columns like running sums)
                 const allColumns = dataTable.columns;
                 worksheetData.push({
@@ -406,7 +409,7 @@ async function handleWorksheetSelection() {
                 
                 // Check if we already have columns cached
                 if (!window.worksheetColumns.has(worksheetName)) {
-                    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
+                    const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1, ignoreSelection: true });
                     // Include all columns (including AGG columns like running sums)
                     const allColumns = dataTable.columns;
                     window.worksheetColumns.set(worksheetName, allColumns);
@@ -640,7 +643,7 @@ async function handleWorksheetSelection() {
             
             // Check if we already have columns cached
             if (!window.worksheetColumns.has(worksheetName)) {
-                const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1 });
+                const dataTable = await worksheet.getSummaryDataAsync({ maxRows: 1, ignoreSelection: true });
                 // Include all columns (including AGG columns like running sums)
                 const allColumns = dataTable.columns;
                 window.worksheetColumns.set(worksheetName, allColumns);
