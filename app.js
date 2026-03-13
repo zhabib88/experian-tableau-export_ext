@@ -6,6 +6,57 @@ window.worksheetColumns = new Map(); // Store columns for each worksheet (global
 const MAX_ROWS_PER_SHEET = 1048576; // Excel row limit (1,048,576)
 const MAX_COL_WIDTH_ROWS = 50000; // Skip expensive width calc beyond this size
 
+// Helper: detect if getSummaryDataAsync returned all-null data
+// (common with Table Extension worksheets where viz-level data isn't fully materialised)
+function isDataAllNull(dataTable) {
+    if (!dataTable || !dataTable.data || dataTable.data.length === 0) return false;
+    const sampleSize = Math.min(dataTable.data.length, 10);
+    for (let i = 0; i < sampleSize; i++) {
+        const row = dataTable.data[i];
+        for (const cell of row) {
+            const v = cell.value;
+            const fv = cell.formattedValue;
+            // If any cell has a real non-null value, data is fine
+            if (v !== null && v !== undefined && v !== '') return false;
+            if (fv && !/^(null|\(null\)|\(blank\))$/i.test(String(fv).trim()) && fv.trim() !== '') return false;
+        }
+    }
+    return true; // All sampled rows had only null/blank values
+}
+
+// Helper: fetch worksheet data with automatic fallback for Table Extension worksheets
+async function getWorksheetDataAsync(worksheet, worksheetName, options) {
+    let dataTable = await worksheet.getSummaryDataAsync(options);
+
+    // If requesting full data (no maxRows:1) and data appears all-null, try underlying data
+    if (!options || !options.maxRows) {
+        if (dataTable.data.length > 0 && isDataAllNull(dataTable)) {
+            console.warn(`Summary data for "${worksheetName}" contains all null values — likely a Table Extension worksheet. Trying underlying data fallback...`);
+            try {
+                if (typeof worksheet.getUnderlyingDataAsync === 'function') {
+                    const underlyingData = await worksheet.getUnderlyingDataAsync({ maxRows: 0 });
+                    if (underlyingData && underlyingData.data && underlyingData.data.length > 0 && !isDataAllNull(underlyingData)) {
+                        console.log(`✓ Underlying data fallback successful for "${worksheetName}" — ${underlyingData.data.length} rows`);
+                        return underlyingData;
+                    }
+                    console.warn(`Underlying data also returned null/empty for "${worksheetName}"`);
+                }
+                if (typeof worksheet.getUnderlyingTableDataAsync === 'function') {
+                    const tableData = await worksheet.getUnderlyingTableDataAsync({ maxRows: 0 });
+                    if (tableData && tableData.data && tableData.data.length > 0 && !isDataAllNull(tableData)) {
+                        console.log(`✓ Underlying table data fallback successful for "${worksheetName}" — ${tableData.data.length} rows`);
+                        return tableData;
+                    }
+                }
+            } catch (fallbackError) {
+                console.warn(`Underlying data fallback failed for "${worksheetName}":`, fallbackError.message);
+            }
+        }
+    }
+
+    return dataTable;
+}
+
 // Helper function to get display name from field name
 function getDisplayName(fieldName) {
     // Remove aggregation functions like SUM(), AVG(), COUNT(), etc.
@@ -1223,7 +1274,7 @@ async function exportToExcel() {
             try {
                 // Force fetch fresh data respecting current dashboard filters
                 console.log(`Fetching fresh data for ${worksheetName} with current filters applied...`);
-                const dataTable = await worksheet.getSummaryDataAsync();
+                const dataTable = await getWorksheetDataAsync(worksheet, worksheetName);
                 console.log(`Retrieved ${dataTable.data.length} rows for ${worksheetName}`);
                 
                 // Include all columns (including AGG columns like running sums)
@@ -1250,7 +1301,19 @@ async function exportToExcel() {
                     const mappedTypes = [];
                     wsColumns.originalNames.forEach((originalName, idx) => {
                         // Find this column in the fresh dataTable by field name
-                        const freshColIndex = dataTable.columns.findIndex(col => col.fieldName === originalName);
+                        let freshColIndex = dataTable.columns.findIndex(col => col.fieldName === originalName);
+                        
+                        // Fallback: if underlying data API was used, column names may lack
+                        // aggregation wrappers (e.g. "Sales" instead of "SUM(Sales)")
+                        if (freshColIndex < 0) {
+                            const stripped = getDisplayName(originalName);
+                            freshColIndex = dataTable.columns.findIndex(col =>
+                                col.fieldName === stripped || getDisplayName(col.fieldName) === stripped
+                            );
+                            if (freshColIndex >= 0) {
+                                console.log(`  ~ Fuzzy-matched "${originalName}" → "${dataTable.columns[freshColIndex].fieldName}" at index ${freshColIndex}`);
+                            }
+                        }
                         
                         if (freshColIndex >= 0) {
                             // Column exists in fresh data (including AGG columns)
